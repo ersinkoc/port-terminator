@@ -1,0 +1,207 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    name: Test before release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run tests
+        run: npm test
+        
+      - name: Run build
+        run: npm run build
+        
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build package
+        run: npm run build
+        
+      - name: Get tag version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Extract changelog for this version
+            VERSION=${{ steps.get_version.outputs.VERSION }}
+            awk "/^## \[?${VERSION#v}\]?/{flag=1; next} /^## \[?[0-9]/{if(flag) exit} flag" CHANGELOG.md > release_notes.md
+            if [ ! -s release_notes.md ]; then
+              echo "## Changes" > release_notes.md
+              echo "See full changelog in [CHANGELOG.md](CHANGELOG.md)" >> release_notes.md
+            fi
+          else
+            echo "## Changes" > release_notes.md
+            echo "Release ${{ steps.get_version.outputs.VERSION }}" >> release_notes.md
+          fi
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.get_version.outputs.VERSION, '-') }}
+          files: |
+            dist/**/*
+            package.json
+            README.md
+            LICENSE
+            CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  publish:
+    name: Publish to NPM
+    runs-on: ubuntu-latest
+    needs: [test, release]
+    permissions:
+      contents: read
+      id-token: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build package
+        run: npm run build
+        
+      - name: Verify package contents
+        run: |
+          npm pack --dry-run
+          echo "Package contents:"
+          npm pack --dry-run | tail -n +2
+          
+      - name: Run pre-publish checks
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+          
+      - name: Publish to NPM (release)
+        if: "!contains(github.ref, '-')"
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: Publish to NPM (pre-release)
+        if: "contains(github.ref, '-')"
+        run: npm publish --access public --tag next --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+  docker:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: [test, release]
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          
+  notify:
+    name: Notify on release
+    runs-on: ubuntu-latest
+    needs: [publish, docker]
+    if: always()
+    
+    steps:
+      - name: Notify success
+        if: needs.publish.result == 'success'
+        run: |
+          echo "✅ Successfully released ${{ github.ref_name }}"
+          echo "📦 Published to NPM: https://www.npmjs.com/package/@oxog/port-terminator"
+          echo "🐳 Docker image: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+          
+      - name: Notify failure
+        if: needs.publish.result == 'failure' || needs.docker.result == 'failure'
+        run: |
+          echo "❌ Release failed for ${{ github.ref_name }}"
+          echo "Check the workflow logs for details"
+          exit 1
