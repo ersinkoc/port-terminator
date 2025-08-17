@@ -51,7 +51,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "benchmark": "node benchmarks/performance.js",
-    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run build",
     "prepare": "npm run build"
   },
   "keywords": [

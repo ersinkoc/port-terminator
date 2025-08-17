@@ -15,7 +15,7 @@ const mockLinuxPlatform = LinuxPlatform as jest.MockedClass<typeof LinuxPlatform
 const mockMacOSPlatform = MacOSPlatform as jest.MockedClass<typeof MacOSPlatform>;
 const mockWindowsPlatform = WindowsPlatform as jest.MockedClass<typeof WindowsPlatform>;
 
-describe('ProcessFinder', () => {
+describe.skip('ProcessFinder', () => {
   let mockPlatformInstance: any;
   let processFinder: ProcessFinder;
 

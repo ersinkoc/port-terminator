@@ -1,6 +1,6 @@
 # @oxog/port-terminator
 
-[![npm version](https://img.shields.io/npm/v/@oxog/port-terminator)](https://www.npmjs.com/package/@oxog/port-terminator) [![npm downloads](https://img.shields.io/npm/dm/@oxog/port-terminator)](https://www.npmjs.com/package/@oxog/port-terminator) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Node.js Version](https://img.shields.io/node/v/@oxog/port-terminator)](https://nodejs.org) [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen.svg)](https://github.com/ersinkoc/port-terminator)
+[![npm version](https://img.shields.io/npm/v/@oxog/port-terminator)](https://www.npmjs.com/package/@oxog/port-terminator) [![npm downloads](https://img.shields.io/npm/dm/@oxog/port-terminator)](https://www.npmjs.com/package/@oxog/port-terminator) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Node.js Version](https://img.shields.io/node/v/@oxog/port-terminator)](https://nodejs.org) [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org)
 
 Cross-platform utility to terminate processes running on specified ports with **zero runtime dependencies**.
 

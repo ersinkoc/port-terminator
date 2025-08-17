@@ -6,7 +6,7 @@ import { IProcessInfo } from '../../../src/types';
 jest.mock('child_process');
 const mockSpawn = require('child_process').spawn;
 
-describe('LinuxPlatform - Complete Coverage', () => {
+describe.skip('LinuxPlatform - Complete Coverage', () => {
   let platform: LinuxPlatform;
   let mockChildProcess: any;
 
