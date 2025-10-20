@@ -1,3 +1,13 @@
+export enum ErrorCode {
+  PROCESS_NOT_FOUND = 'PROCESS_NOT_FOUND',
+  PERMISSION_DENIED = 'PERMISSION_DENIED',
+  PLATFORM_UNSUPPORTED = 'PLATFORM_UNSUPPORTED',
+  OPERATION_TIMEOUT = 'OPERATION_TIMEOUT',
+  INVALID_PORT = 'INVALID_PORT',
+  COMMAND_EXECUTION_FAILED = 'COMMAND_EXECUTION_FAILED',
+  PROCESS_KILL_FAILED = 'PROCESS_KILL_FAILED',
+}
+
 export class PortTerminatorError extends Error {
   public readonly code: string;
   public readonly port?: number;
@@ -15,28 +25,28 @@ export class PortTerminatorError extends Error {
 
 export class ProcessNotFoundError extends PortTerminatorError {
   constructor(port: number) {
-    super(`No process found running on port ${port}`, 'PROCESS_NOT_FOUND', port);
+    super(`No process found running on port ${port}`, ErrorCode.PROCESS_NOT_FOUND, port);
     this.name = 'ProcessNotFoundError';
   }
 }
 
 export class PermissionError extends PortTerminatorError {
   constructor(message: string, pid?: number) {
-    super(message, 'PERMISSION_DENIED', undefined, pid);
+    super(message, ErrorCode.PERMISSION_DENIED, undefined, pid);
     this.name = 'PermissionError';
   }
 }
 
 export class PlatformError extends PortTerminatorError {
   constructor(platform: string, message?: string) {
-    super(message || `Unsupported platform: ${platform}`, 'PLATFORM_UNSUPPORTED');
+    super(message || `Unsupported platform: ${platform}`, ErrorCode.PLATFORM_UNSUPPORTED);
     this.name = 'PlatformError';
   }
 }
 
 export class TimeoutError extends PortTerminatorError {
   constructor(operation: string, timeout: number) {
-    super(`Operation '${operation}' timed out after ${timeout}ms`, 'OPERATION_TIMEOUT');
+    super(`Operation '${operation}' timed out after ${timeout}ms`, ErrorCode.OPERATION_TIMEOUT);
     this.name = 'TimeoutError';
   }
 }
@@ -45,7 +55,7 @@ export class InvalidPortError extends PortTerminatorError {
   constructor(port: number | string) {
     super(
       `Invalid port number: ${port}. Port must be between 1 and 65535`,
-      'INVALID_PORT',
+      ErrorCode.INVALID_PORT,
       typeof port === 'number' ? port : undefined
     );
     this.name = 'InvalidPortError';
@@ -60,7 +70,7 @@ export class CommandExecutionError extends PortTerminatorError {
   constructor(command: string, exitCode: number, stderr: string) {
     super(
       `Command execution failed: ${command} (exit code: ${exitCode})`,
-      'COMMAND_EXECUTION_FAILED'
+      ErrorCode.COMMAND_EXECUTION_FAILED
     );
     this.name = 'CommandExecutionError';
     this.command = command;
@@ -73,7 +83,7 @@ export class ProcessKillError extends PortTerminatorError {
   constructor(pid: number, signal?: string) {
     super(
       `Failed to kill process ${pid}${signal ? ` with signal ${signal}` : ''}`,
-      'PROCESS_KILL_FAILED',
+      ErrorCode.PROCESS_KILL_FAILED,
       undefined,
       pid
     );

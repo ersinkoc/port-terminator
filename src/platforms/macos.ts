@@ -91,7 +91,22 @@ export class MacOSPlatform implements IPlatformImplementation {
     return processes.length === 0;
   }
 
-  private async executeCommand(command: string, args: string[]): Promise<ICommandResult> {
+  async isProcessRunning(pid: number): Promise<boolean> {
+    try {
+      // Use kill -0 to check if process exists without actually killing it
+      await this.executeCommand('kill', ['-0', pid.toString()]);
+      return true;
+    } catch {
+      // If command fails, process doesn't exist
+      return false;
+    }
+  }
+
+  private async executeCommand(
+    command: string,
+    args: string[],
+    timeoutMs = 30000
+  ): Promise<ICommandResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -99,6 +114,23 @@ export class MacOSPlatform implements IPlatformImplementation {
 
       let stdout = '';
       let stderr = '';
+      let isResolved = false;
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGTERM');
+          setTimeout(() => child.kill('SIGKILL'), 5000);
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `Command timed out after ${timeoutMs}ms`
+            )
+          );
+        }
+      }, timeoutMs);
 
       child.stdout?.on('data', (data) => {
         stdout += data.toString();
@@ -109,27 +141,37 @@ export class MacOSPlatform implements IPlatformImplementation {
       });
 
       child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr, exitCode: code });
-        } else {
-          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          if (code === 0) {
+            resolve({ stdout, stderr, exitCode: code });
+          } else {
+            reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
+          }
         }
       });
 
       child.on('error', (error) => {
-        reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
+        }
       });
     });
   }
 
   private async fallbackFindProcesses(port: number, protocol: string): Promise<IProcessInfo[]> {
+    // WARNING: netstat fallback cannot determine PIDs on macOS
+    // We cannot kill processes without PIDs, so we throw an error
+    // instead of returning processes with PID 0
     try {
       const netstatResult = await this.executeCommand('netstat', [
         '-an',
         '-p',
         protocol === 'both' ? 'tcp' : protocol,
       ]);
-      const processes: IProcessInfo[] = [];
       const lines = netstatResult.stdout.split('\n');
 
       for (const line of lines) {
@@ -151,20 +193,22 @@ export class MacOSPlatform implements IPlatformImplementation {
         if (!portMatch) continue;
 
         const localPort = parseInt(portMatch[1], 10);
-        if (localPort !== port) continue;
-
-        processes.push({
-          pid: 0,
-          name: 'Unknown',
-          port: localPort,
-          protocol: proto.toLowerCase(),
-          command: undefined,
-          user: undefined,
-        });
+        if (localPort === port) {
+          // Port is in use but we cannot determine PID
+          throw new CommandExecutionError(
+            'lsof (fallback to netstat)',
+            1,
+            'Process found on port but cannot determine PID. lsof command not available.'
+          );
+        }
       }
 
-      return processes;
-    } catch {
+      // Port not found in netstat output
+      return [];
+    } catch (error) {
+      if (error instanceof CommandExecutionError) {
+        throw error;
+      }
       return [];
     }
   }
