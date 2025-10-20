@@ -39,6 +39,10 @@ export class ProcessFinder {
           const processes = await this.findByPort(port, protocol);
           results.set(port, processes);
         } catch (error) {
+          // Log error for debugging but don't throw - continue with other ports
+          if (error instanceof Error) {
+            console.debug(`Failed to find processes on port ${port}: ${error.message}`);
+          }
           results.set(port, []);
         }
       })
