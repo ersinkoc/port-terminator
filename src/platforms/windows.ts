@@ -59,7 +59,7 @@ export class WindowsPlatform implements IPlatformImplementation {
         }
       }
 
-      return processes;
+      return this.deduplicateProcesses(processes);
     } catch (error) {
       throw new CommandExecutionError(
         'netstat -ano',
@@ -94,7 +94,30 @@ export class WindowsPlatform implements IPlatformImplementation {
     return processes.length === 0;
   }
 
-  private async executeCommand(command: string, args: string[]): Promise<ICommandResult> {
+  async isProcessRunning(pid: number): Promise<boolean> {
+    try {
+      const result = await this.executeCommand('tasklist', [
+        '/FI',
+        `PID eq ${pid}`,
+        '/FO',
+        'CSV',
+        '/NH',
+      ]);
+
+      // If tasklist returns output, the process exists
+      const lines = result.stdout.trim().split('\n');
+      return lines.length > 0 && lines[0].trim().length > 0;
+    } catch {
+      // If command fails, process doesn't exist
+      return false;
+    }
+  }
+
+  private async executeCommand(
+    command: string,
+    args: string[],
+    timeoutMs = 30000
+  ): Promise<ICommandResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -103,6 +126,23 @@ export class WindowsPlatform implements IPlatformImplementation {
 
       let stdout = '';
       let stderr = '';
+      let isResolved = false;
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGTERM');
+          setTimeout(() => child.kill('SIGKILL'), 5000);
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `Command timed out after ${timeoutMs}ms`
+            )
+          );
+        }
+      }, timeoutMs);
 
       child.stdout?.on('data', (data) => {
         stdout += data.toString();
@@ -113,15 +153,23 @@ export class WindowsPlatform implements IPlatformImplementation {
       });
 
       child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr, exitCode: code });
-        } else {
-          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          if (code === 0) {
+            resolve({ stdout, stderr, exitCode: code });
+          } else {
+            reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
+          }
         }
       });
 
       child.on('error', (error) => {
-        reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
+        }
       });
     });
   }
@@ -178,14 +226,27 @@ export class WindowsPlatform implements IPlatformImplementation {
 
   private async getProcessUser(pid: number): Promise<string | undefined> {
     try {
-      await this.executeCommand('wmic', [
-        'process',
-        'where',
-        `ProcessId=${pid}`,
-        'get',
-        'ExecutablePath',
-        '/format:value',
+      // Query for the process owner using tasklist /V
+      const result = await this.executeCommand('tasklist', [
+        '/FI',
+        `PID eq ${pid}`,
+        '/FO',
+        'CSV',
+        '/NH',
+        '/V',
       ]);
+
+      const lines = result.stdout.trim().split('\n');
+      if (lines.length > 0) {
+        const csvLine = lines[0];
+        const parts = this.parseCSVLine(csvLine);
+        // In verbose mode, the username is typically in column 6 or 7
+        // Format: ImageName, PID, SessionName, Session#, MemUsage, Status, UserName, CPUTime, WindowTitle
+        if (parts.length > 6) {
+          const username = parts[6];
+          return username !== 'N/A' ? username : undefined;
+        }
+      }
 
       return undefined;
     } catch {
@@ -229,5 +290,17 @@ export class WindowsPlatform implements IPlatformImplementation {
     }
 
     return result.map((item) => item.replace(/^"(.*)"$/, '$1'));
+  }
+
+  private deduplicateProcesses(processes: IProcessInfo[]): IProcessInfo[] {
+    const seen = new Set<string>();
+    return processes.filter((process) => {
+      const key = `${process.pid}-${process.port}-${process.protocol}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 }

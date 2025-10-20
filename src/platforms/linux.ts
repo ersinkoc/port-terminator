@@ -48,6 +48,17 @@ export class LinuxPlatform implements IPlatformImplementation {
     return processes.length === 0;
   }
 
+  async isProcessRunning(pid: number): Promise<boolean> {
+    try {
+      // Use kill -0 to check if process exists without actually killing it
+      await this.executeCommand('kill', ['-0', pid.toString()]);
+      return true;
+    } catch {
+      // If command fails, process doesn't exist
+      return false;
+    }
+  }
+
   private async findWithLsof(port: number, protocol: string): Promise<IProcessInfo[]> {
     const processes: IProcessInfo[] = [];
     const protocols = protocol === 'both' ? ['tcp', 'udp'] : [protocol];
@@ -140,8 +151,15 @@ export class LinuxPlatform implements IPlatformImplementation {
           }
         }
 
-        const processCommand = pid > 0 ? await this.getProcessCommand(pid) : undefined;
-        const processUser = pid > 0 ? await this.getProcessUser(pid) : undefined;
+        // Skip processes with PID 0 (cannot be killed)
+        if (pid === 0) {
+          // This means netstat found the port but couldn't determine PID
+          // Likely because the command was run without sufficient privileges
+          continue;
+        }
+
+        const processCommand = await this.getProcessCommand(pid);
+        const processUser = await this.getProcessUser(pid);
 
         processes.push({
           pid,
@@ -159,7 +177,11 @@ export class LinuxPlatform implements IPlatformImplementation {
     }
   }
 
-  private async executeCommand(command: string, args: string[]): Promise<ICommandResult> {
+  private async executeCommand(
+    command: string,
+    args: string[],
+    timeoutMs = 30000
+  ): Promise<ICommandResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -167,6 +189,23 @@ export class LinuxPlatform implements IPlatformImplementation {
 
       let stdout = '';
       let stderr = '';
+      let isResolved = false;
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGTERM');
+          setTimeout(() => child.kill('SIGKILL'), 5000);
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `Command timed out after ${timeoutMs}ms`
+            )
+          );
+        }
+      }, timeoutMs);
 
       child.stdout?.on('data', (data) => {
         stdout += data.toString();
@@ -177,15 +216,23 @@ export class LinuxPlatform implements IPlatformImplementation {
       });
 
       child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr, exitCode: code });
-        } else {
-          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          if (code === 0) {
+            resolve({ stdout, stderr, exitCode: code });
+          } else {
+            reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
+          }
         }
       });
 
       child.on('error', (error) => {
-        reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
+        }
       });
     });
   }

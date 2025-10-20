@@ -17,6 +17,11 @@ export function validatePort(port: number | string): number {
     throw new InvalidPortError(port);
   }
 
+  // Ensure port is an integer (no floating point)
+  if (!Number.isInteger(portNum)) {
+    throw new InvalidPortError(port);
+  }
+
   if (portNum < 1 || portNum > 65535) {
     throw new InvalidPortError(portNum);
   }
@@ -35,7 +40,7 @@ export function validateTimeout(timeout: number): number {
   return timeout;
 }
 
-export function parsePortRange(range: string): number[] {
+export function parsePortRange(range: string, maxRangeSize = 1000): number[] {
   const rangeParts = range.split('-');
   if (rangeParts.length !== 2) {
     throw new Error(`Invalid port range: ${range}. Expected format: start-end`);
@@ -47,6 +52,13 @@ export function parsePortRange(range: string): number[] {
   if (start > end) {
     throw new Error(
       `Invalid port range: ${range}. Start port must be less than or equal to end port`
+    );
+  }
+
+  const rangeSize = end - start + 1;
+  if (rangeSize > maxRangeSize) {
+    throw new Error(
+      `Port range too large: ${rangeSize} ports. Maximum allowed: ${maxRangeSize}`
     );
   }
 
@@ -73,4 +85,10 @@ export function normalizeProtocol(protocol?: string): 'tcp' | 'udp' | 'both' {
   }
 
   return normalized as 'tcp' | 'udp' | 'both';
+}
+
+export function validatePID(pid: number): void {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    throw new Error(`Invalid PID: ${pid}. Must be a positive integer.`);
+  }
 }

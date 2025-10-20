@@ -4,6 +4,7 @@ import { WindowsPlatform } from '../platforms/windows';
 import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
+import { validatePID } from '../utils/validators';
 
 export class ProcessKiller {
   private platform: IPlatformImplementation;
@@ -27,6 +28,9 @@ export class ProcessKiller {
   }
 
   async killProcess(pid: number, force = false, gracefulTimeout = 5000): Promise<boolean> {
+    // Validate PID before attempting to kill
+    validatePID(pid);
+
     if (!force && gracefulTimeout > 0) {
       try {
         await this.platform.killProcess(pid, false);
@@ -56,6 +60,10 @@ export class ProcessKiller {
           const success = await this.killProcess(pid, force, gracefulTimeout);
           results.set(pid, success);
         } catch (error) {
+          // Log error for debugging but don't throw - continue with other processes
+          if (error instanceof Error) {
+            console.debug(`Failed to kill process ${pid}: ${error.message}`);
+          }
           results.set(pid, false);
         }
       })
@@ -85,7 +93,12 @@ export class ProcessKiller {
           killedProcesses.push(process);
         }
       } catch (error) {
-        // Log error but continue with other processes
+        // Log error for debugging but continue with other processes
+        if (error instanceof Error) {
+          console.debug(
+            `Failed to kill process ${process.pid} (${process.name}) on port ${port}: ${error.message}`
+          );
+        }
       }
     }
 
@@ -111,6 +124,10 @@ export class ProcessKiller {
           );
           results.set(port, killedProcesses);
         } catch (error) {
+          // Log error for debugging but don't throw - continue with other ports
+          if (error instanceof Error) {
+            console.debug(`Failed to kill processes on port ${port}: ${error.message}`);
+          }
           results.set(port, []);
         }
       })
@@ -125,15 +142,16 @@ export class ProcessKiller {
 
     while (Date.now() - startTime < timeout) {
       try {
-        const processes = await this.platform.findProcessesByPort(0);
-        const processExists = processes.some((p) => p.pid === pid);
+        // Use platform-specific process existence check
+        const isRunning = await this.platform.isProcessRunning(pid);
 
-        if (!processExists) {
+        if (!isRunning) {
           return true;
         }
 
         await new Promise((resolve) => setTimeout(resolve, checkInterval));
       } catch (error) {
+        // If we get an error checking the process, assume it exited
         return true;
       }
     }

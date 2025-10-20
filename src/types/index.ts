@@ -19,6 +19,7 @@ export interface IPlatformImplementation {
   findProcessesByPort(port: number, protocol?: string): Promise<IProcessInfo[]>;
   killProcess(pid: number, force?: boolean): Promise<boolean>;
   isPortAvailable(port: number, protocol?: string): Promise<boolean>;
+  isProcessRunning(pid: number): Promise<boolean>;
 }
 
 export interface ICommandResult {

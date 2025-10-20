@@ -39,6 +39,10 @@ export class ProcessFinder {
           const processes = await this.findByPort(port, protocol);
           results.set(port, processes);
         } catch (error) {
+          // Log error for debugging but don't throw - continue with other ports
+          if (error instanceof Error) {
+            console.debug(`Failed to find processes on port ${port}: ${error.message}`);
+          }
           results.set(port, []);
         }
       })
@@ -57,6 +61,7 @@ export class ProcessFinder {
     protocol?: string
   ): Promise<boolean> {
     const checkInterval = 250;
+    const startTime = Date.now();
 
     // Perform an initial check immediately
     let isAvailable = await this.isPortAvailable(port, protocol);
@@ -69,7 +74,8 @@ export class ProcessFinder {
       return false;
     }
 
-    for (let i = 0; i < timeout / checkInterval; i++) {
+    // Use time-based loop instead of iteration count
+    while (Date.now() - startTime < timeout) {
       await new Promise((resolve) => setTimeout(resolve, checkInterval));
       isAvailable = await this.isPortAvailable(port, protocol);
       if (isAvailable) {
@@ -82,6 +88,7 @@ export class ProcessFinder {
 
   async waitForPortToBeBusy(port: number, timeout = 30000, protocol?: string): Promise<boolean> {
     const checkInterval = 250;
+    const startTime = Date.now();
 
     // Perform an initial check immediately
     let isAvailable = await this.isPortAvailable(port, protocol);
@@ -94,7 +101,8 @@ export class ProcessFinder {
       return false;
     }
 
-    for (let i = 0; i < timeout / checkInterval; i++) {
+    // Use time-based loop instead of iteration count
+    while (Date.now() - startTime < timeout) {
       await new Promise((resolve) => setTimeout(resolve, checkInterval));
       isAvailable = await this.isPortAvailable(port, protocol);
       if (!isAvailable) {
