@@ -41,6 +41,16 @@ describe('validators', () => {
         expect((error as InvalidPortError).message).toContain('0');
       }
     });
+
+    it('should include the original port string in the error for out-of-range strings', () => {
+      try {
+        validatePort('65536');
+      } catch (error) {
+        expect(error).toBeInstanceOf(InvalidPortError);
+        expect((error as InvalidPortError).port).toBe('65536');
+        expect((error as InvalidPortError).message).toContain('65536');
+      }
+    });
   });
 
   describe('validatePorts', () => {
