@@ -23,7 +23,7 @@ export function validatePort(port: number | string): number {
   }
 
   if (portNum < 1 || portNum > 65535) {
-    throw new InvalidPortError(port);
+    throw new InvalidPortError(portNum);
   }
 
   return portNum;

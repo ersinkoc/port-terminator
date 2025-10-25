@@ -4,6 +4,27 @@
 
 Cross-platform utility to terminate processes running on specified ports with **zero runtime dependencies**.
 
+---
+
+## 📖 Table of Contents
+
+- [🚀 Features](#-features)
+- [📦 Installation](#-installation)
+- [🔧 CLI Usage](#-cli-usage)
+- [📚 Programmatic Usage](#-programmatic-usage)
+- [🔍 API Reference](#-api-reference)
+- [🔧 Platform Support](#-platform-support)
+- [🧪 Examples](#-examples)
+- [🎯 Use Cases](#-use-cases)
+- [🔒 Security](#-security)
+- [📊 Performance](#-performance)
+- [🤝 Contributing](#-contributing)
+- [📝 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
+- [📞 Support](#-support)
+
+---
+
 ## 🚀 Features
 
 - **Zero Dependencies**: No runtime dependencies, only Node.js built-in modules
@@ -27,195 +48,212 @@ npm install @oxog/port-terminator
 
 ## 🔧 CLI Usage
 
-The package provides both `port-terminator` and `pt` (short alias) commands:
+The package provides two commands: `port-terminator` and its shorter alias, `pt`.
 
-```bash
-# Kill process on single port
-port-terminator 3000
+### Basic Examples
 
-# Kill processes on multiple ports
-port-terminator 3000 8080 9000
+- **Kill a single port:**
+  ```bash
+  port-terminator 3000
+  ```
 
-# Kill processes in a port range
-port-terminator --range 3000-3005
+- **Kill multiple ports:**
+  ```bash
+  pt 3000 8080 9000
+  ```
 
-# Force kill without graceful timeout
-port-terminator 3000 --force
+- **Kill a range of ports:**
+  ```bash
+  port-terminator --range 3000-3005
+  ```
 
-# Preview what would be killed (dry run)
-port-terminator 3000 --dry-run
+### Advanced Examples
 
-# Kill only TCP processes
-port-terminator 3000 --method tcp
+- **Force kill a process:**
+  ```bash
+  pt 3000 --force
+  ```
 
-# Get JSON output
-port-terminator 3000 --json
+- **Preview processes to be killed (dry run):**
+  ```bash
+  port-terminator 3000 --dry-run
+  ```
 
-# Using short alias
-pt 3000
-```
+- **Target a specific protocol (TCP/UDP):**
+  ```bash
+  pt 3000 --method tcp
+  ```
 
-### CLI Options
+- **Get JSON output for scripting:**
+  ```bash
+  port-terminator 3000 --json
+  ```
 
-```
--r, --range <start-end>     Kill processes in port range (e.g., 3000-3005)
--f, --force                 Force kill without graceful timeout
--t, --timeout <ms>          Overall operation timeout (default: 30000)
--g, --graceful-timeout <ms> Graceful shutdown timeout (default: 5000)
--m, --method <protocol>     Protocol to target: tcp, udp, or both (default: both)
--n, --dry-run               Show what would be killed without actually killing
--j, --json                  Output results in JSON format
--s, --silent                Suppress all output except errors
--h, --help                  Show help message
--v, --version               Show version number
-```
+### All CLI Options
+
+| Short | Long               | Description                                           | Default |
+|-------|--------------------|-------------------------------------------------------|---------|
+| `-r`  | `--range`          | Kill processes in a port range (e.g., `3000-3005`)    |         |
+| `-f`  | `--force`          | Force kill without a graceful timeout                 | `false` |
+| `-t`  | `--timeout`        | Overall operation timeout in ms                       | `30000` |
+| `-g`  | `--graceful-timeout`| Graceful shutdown timeout in ms                       | `5000`  |
+| `-m`  | `--method`         | Protocol to target: `tcp`, `udp`, or `both`           | `both`  |
+| `-n`  | `--dry-run`        | Show what would be killed without actually killing    | `false` |
+| `-j`  | `--json`           | Output results in JSON format                         | `false` |
+| `-s`  | `--silent`         | Suppress all output except errors                     | `false` |
+| `-h`  | `--help`           | Show the help message                                 |         |
+| `-v`  | `--version`        | Show the version number                               |         |
 
 ## 📚 Programmatic Usage
 
-### Basic Usage
+The library can be used programmatically by importing the `PortTerminator` class or the convenience functions.
+
+### Using Convenience Functions
+
+For simple, one-off tasks, the convenience functions are a great choice.
 
 ```typescript
-import { PortTerminator, killPort, killPorts, getProcessOnPort } from '@oxog/port-terminator';
+import { killPort, killPorts, getProcessOnPort, isPortAvailable } from '@oxog/port-terminator';
 
-// Simple one-liner to kill a port
+// Kill a single port
 await killPort(3000);
 
-// Kill multiple ports
-await killPorts([3000, 8080, 9000]);
+// Kill multiple ports and get results
+const results = await killPorts([3000, 8080, 9000]);
+console.log(results.get(3000)); // true or false
 
-// Get process information
+// Get information about a process
 const process = await getProcessOnPort(3000);
-console.log(process); // { pid: 1234, name: 'node', port: 3000, protocol: 'tcp', ... }
+if (process) {
+  console.log(`Process ${process.name} (PID: ${process.pid}) is on port 3000.`);
+}
+
+// Check if a port is available
+const available = await isPortAvailable(3000);
+console.log(`Port 3000 is ${available ? 'free' : 'in use'}.`);
 ```
 
-### Advanced Usage
+### Using the `PortTerminator` Class
+
+For more complex scenarios or when you need more control, instantiate the `PortTerminator` class.
 
 ```typescript
 import { PortTerminator } from '@oxog/port-terminator';
 
 const terminator = new PortTerminator({
-  method: 'tcp',           // Only target TCP processes
-  force: false,            // Try graceful shutdown first
-  gracefulTimeout: 5000,   // Wait 5s for graceful shutdown
-  timeout: 30000,          // Overall operation timeout
-  silent: false            // Enable logging
+  method: 'tcp',          // Only target TCP processes
+  force: false,           // Try graceful shutdown first
+  gracefulTimeout: 5000,  // Wait 5s for graceful shutdown
 });
 
-// Terminate with detailed results
-const results = await terminator.terminateWithDetails([3000, 8080]);
-console.log(results);
-/*
-[
-  {
-    port: 3000,
-    success: true,
-    processes: [{ pid: 1234, name: 'node', ... }]
-  },
-  {
-    port: 8080,
-    success: false,
-    processes: [],
-    error: "Permission denied"
+// Get detailed termination results
+const detailedResults = await terminator.terminateWithDetails([3000, 8080]);
+for (const result of detailedResults) {
+  if (result.success) {
+    console.log(`Successfully terminated ${result.processes.length} processes on port ${result.port}.`);
+  } else {
+    console.error(`Failed to terminate on port ${result.port}: ${result.error}`);
   }
-]
-*/
+}
 
-// Check if port is available
-const isAvailable = await terminator.isPortAvailable(3000);
-
-// Wait for port to become available
-await terminator.waitForPort(3000, 10000); // Wait up to 10 seconds
-
-// Get all processes on a port
-const processes = await terminator.getProcesses(3000);
+// Wait for a port to become available
+try {
+  await terminator.waitForPort(3000, 10000); // Wait up to 10 seconds
+  console.log('Port 3000 is now available!');
+} catch (err) {
+  console.error(err.message);
+}
 ```
 
-### Port Scanning & Management
+### Port Scanning with `PortScanner`
+
+The `PortScanner` class provides powerful tools for checking port availability.
 
 ```typescript
 import { PortScanner } from '@oxog/port-terminator';
 
 const scanner = new PortScanner();
 
-// Scan a single port
+// Scan a single port for details
 const result = await scanner.scanPort(3000);
 console.log(result); // { port: 3000, available: false, processes: [...] }
 
-// Scan multiple ports
-const results = await scanner.scanPorts([3000, 8080, 9000]);
+// Find the next available port starting from 3000
+const availablePort = await scanner.findAvailablePort(3000);
+console.log(`Next available port is: ${availablePort}`);
 
-// Scan a port range
-const rangeResult = await scanner.scanPortRange(3000, 3010);
-console.log(rangeResult.availablePorts); // [3002, 3004, 3007, ...]
-
-// Find next available port
-const availablePort = await scanner.findAvailablePort(3000); // Returns 3001 if 3000 is busy
-
-// Find multiple available ports
-const availablePorts = await scanner.findAvailablePorts(5, 3000); // Find 5 available ports starting from 3000
+// Find 5 available ports in a given range
+const rangeScan = await scanner.scanPortRange(3000, 3010);
+const fivePorts = rangeScan.availablePorts.slice(0, 5);
+console.log(`Found 5 available ports: ${fivePorts.join(', ')}`);
 ```
 
 ## 🔍 API Reference
 
-### PortTerminator Class
+### `PortTerminator` Class
 
-```typescript
-class PortTerminator {
-  constructor(options?: IPortTerminatorOptions);
-  
-  // Terminate processes on port(s)
-  terminate(port: number | number[]): Promise<boolean>;
-  terminateMultiple(ports: number[]): Promise<Map<number, boolean>>;
-  terminateWithDetails(ports: number[]): Promise<ITerminationResult[]>;
-  
-  // Query operations
-  getProcesses(port: number): Promise<IProcessInfo[]>;
-  isPortAvailable(port: number): Promise<boolean>;
-  waitForPort(port: number, timeout?: number): Promise<boolean>;
-}
-```
+The main class for process termination.
+
+- `constructor(options?: IPortTerminatorOptions)`
+- `terminate(port: number | number[]): Promise<boolean>`
+- `terminateMultiple(ports: number[]): Promise<Map<number, boolean>>`
+- `terminateWithDetails(ports: number[]): Promise<ITerminationResult[]>`
+- `getProcesses(port: number): Promise<IProcessInfo[]>`
+- `isPortAvailable(port: number): Promise<boolean>`
+- `waitForPort(port: number, timeout?: number): Promise<boolean>`
+
+### `PortScanner` Class
+
+A class for scanning and finding available ports.
+
+- `constructor(options?: IPortScannerOptions)`
+- `scanPort(port: number, protocol?: 'tcp' | 'udp' | 'both'): Promise<IScanResult>`
+- `scanPorts(ports: number[], protocol?: 'tcp' | 'udp' | 'both'): Promise<IScanResult[]>`
+- `scanPortRange(startPort: number, endPort: number, protocol?: 'tcp' | 'udp' | 'both'): Promise<IRangeScanResult>`
+- `findAvailablePort(startPort?: number, endPort?: number, protocol?: 'tcp' | 'udp' | 'both'): Promise<number | null>`
+- `findAvailablePorts(count: number, startPort?: number, endPort?: number, protocol?: 'tcp' | 'udp' | 'both'): Promise<number[]>`
 
 ### Convenience Functions
 
-```typescript
-// Simple termination functions
-killPort(port: number, options?: IPortTerminatorOptions): Promise<boolean>;
-killPorts(ports: number[], options?: IPortTerminatorOptions): Promise<Map<number, boolean>>;
+- `killPort(port: number, options?: IPortTerminatorOptions): Promise<boolean>`
+- `killPorts(ports: number[], options?: IPortTerminatorOptions): Promise<Map<number, boolean>>`
+- `getProcessOnPort(port: number, options?: IPortTerminatorOptions): Promise<IProcessInfo | null>`
+- `getProcessesOnPort(port: number, options?: IPortTerminatorOptions): Promise<IProcessInfo[]>`
+- `isPortAvailable(port: number, options?: IPortTerminatorOptions): Promise<boolean>`
+- `waitForPort(port: number, timeout?: number, options?: IPortTerminatorOptions): Promise<boolean>`
 
-// Query functions
-getProcessOnPort(port: number, options?: IPortTerminatorOptions): Promise<IProcessInfo | null>;
-getProcessesOnPort(port: number, options?: IPortTerminatorOptions): Promise<IProcessInfo[]>;
-isPortAvailable(port: number, options?: IPortTerminatorOptions): Promise<boolean>;
-waitForPort(port: number, timeout?: number, options?: IPortTerminatorOptions): Promise<boolean>;
-```
+### Core Types
 
-### Types
+- **`IPortTerminatorOptions`**: Configuration for `PortTerminator`.
+  - `method`: `'tcp' | 'udp' | 'both'` (default: `'both'`)
+  - `timeout`: `number` (ms, default: `30000`)
+  - `force`: `boolean` (default: `false`)
+  - `silent`: `boolean` (default: `false`)
+  - `gracefulTimeout`: `number` (ms, default: `5000`)
 
-```typescript
-interface IPortTerminatorOptions {
-  method?: 'tcp' | 'udp' | 'both';  // Default: 'both'
-  timeout?: number;                  // Default: 30000
-  force?: boolean;                   // Default: false
-  silent?: boolean;                  // Default: false
-  gracefulTimeout?: number;          // Default: 5000
-}
+- **`IProcessInfo`**: Information about a process on a port.
+  - `pid`: `number`
+  - `name`: `string`
+  - `port`: `number`
+  - `protocol`: `string`
+  - `command`: `string | undefined`
+  - `user`: `string | undefined`
 
-interface IProcessInfo {
-  pid: number;
-  name: string;
-  port: number;
-  protocol: string;
-  command?: string;
-  user?: string;
-}
+- **`ITerminationResult`**: Detailed result of a termination operation.
+  - `port`: `number`
+  - `success`: `boolean`
+  - `processes`: `IProcessInfo[]`
+  - `error`: `string | undefined`
 
-interface ITerminationResult {
-  port: number;
-  success: boolean;
-  processes: IProcessInfo[];
-  error?: string;
-}
-```
+## 🤔 Why Port Terminator?
+
+While there are other tools that can kill processes on ports, `@oxog/port-terminator` is designed to be a robust, reliable, and easy-to-use solution for modern development workflows.
+
+- **Zero Runtime Dependencies**: Ensures minimal footprint and avoids common dependency conflicts.
+- **Cross-Platform from the Ground Up**: Built and tested to work consistently on Windows, macOS, and Linux.
+- **TypeScript First**: Provides a great developer experience with modern TypeScript features.
+- **Comprehensive & Flexible API**: Offers both high-level convenience functions and a low-level class-based API for full control.
+- **Both CLI and Library**: A powerful tool for both command-line users and programmatic integration.
 
 ## 🔧 Platform Support
 
@@ -350,5 +388,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-Made with ❤️ for the developer community
+Made with ❤️ for the developer community.
 </div>
