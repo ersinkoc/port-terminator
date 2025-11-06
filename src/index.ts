@@ -39,10 +39,10 @@ export class PortTerminator {
 
     this.options = {
       method: options.method || 'both',
-      timeout: options.timeout || 30000,
+      timeout: options.timeout !== undefined ? options.timeout : 30000,
       force: options.force || false,
       silent: options.silent || false,
-      gracefulTimeout: options.gracefulTimeout || 5000,
+      gracefulTimeout: options.gracefulTimeout !== undefined ? options.gracefulTimeout : 5000,
     };
 
     this.logger = new Logger('info', this.options.silent);
@@ -198,7 +198,7 @@ export class PortTerminator {
    */
   async waitForPort(port: number, timeout?: number): Promise<boolean> {
     const validatedPort = validatePort(port);
-    const timeoutMs = timeout ? validateTimeout(timeout) : this.options.timeout;
+    const timeoutMs = timeout !== undefined ? validateTimeout(timeout) : this.options.timeout;
     const protocol = this.options.method;
 
     this.logger.debug(
