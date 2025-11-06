@@ -290,6 +290,7 @@ describe('ProcessKiller', () => {
         findProcessesByPort: jest.fn(),
         killProcess: jest.fn(),
         isPortAvailable: jest.fn(),
+        isProcessRunning: jest.fn(),
       };
 
       (testProcessKiller as any).platform = testPlatformInstance;
@@ -302,27 +303,25 @@ describe('ProcessKiller', () => {
         return callCount * 50; // 50ms, 100ms increments - stay within timeout
       });
 
-      // Set up findProcessesByPort to return process first time, empty second time
-      let findCallCount = 0;
-      testPlatformInstance.findProcessesByPort.mockImplementation(async (port) => {
-        if (port === 0) {
-          findCallCount++;
-          if (findCallCount === 1) {
-            // First call: process exists - this will lead to setTimeout
-            return [{ pid: 1234, name: 'test', port: 3000, protocol: 'tcp' }];
-          } else {
-            // Second call after setTimeout: process gone
-            return [];
-          }
+      // Set up isProcessRunning to return true first time (process exists), false second time (process exited)
+      let runningCallCount = 0;
+      testPlatformInstance.isProcessRunning.mockImplementation(async (pid) => {
+        runningCallCount++;
+        if (runningCallCount === 1) {
+          // First call: process is still running - this will lead to setTimeout
+          return true;
+        } else {
+          // Second call after setTimeout: process has exited
+          return false;
         }
-        return [];
       });
 
       const result = await testWaitForProcessToExit(1234, 5000);
       expect(result).toBe(true);
 
-      // Should have called findProcessesByPort twice
-      expect(testPlatformInstance.findProcessesByPort).toHaveBeenCalledTimes(2);
+      // Should have called isProcessRunning twice
+      expect(testPlatformInstance.isProcessRunning).toHaveBeenCalledTimes(2);
+      expect(testPlatformInstance.isProcessRunning).toHaveBeenCalledWith(1234);
 
       // Restore
       Date.now = originalDateNow;

@@ -10,10 +10,10 @@ export enum ErrorCode {
 
 export class PortTerminatorError extends Error {
   public readonly code: string;
-  public readonly port?: number;
+  public readonly port?: number | string;
   public readonly pid?: number;
 
-  constructor(message: string, code: string, port?: number, pid?: number) {
+  constructor(message: string, code: string, port?: number | string, pid?: number) {
     super(message);
     this.name = 'PortTerminatorError';
     this.code = code;
@@ -53,10 +53,15 @@ export class TimeoutError extends PortTerminatorError {
 
 export class InvalidPortError extends PortTerminatorError {
   constructor(port: number | string) {
+    // Only preserve port value if it's a number or a parseable numeric string
+    const portValue = typeof port === 'number' ? port :
+                      (!isNaN(parseInt(port, 10)) && isFinite(parseInt(port, 10))) ? port :
+                      undefined;
+
     super(
       `Invalid port number: ${port}. Port must be between 1 and 65535`,
       ErrorCode.INVALID_PORT,
-      typeof port === 'number' ? port : undefined
+      portValue
     );
     this.name = 'InvalidPortError';
   }

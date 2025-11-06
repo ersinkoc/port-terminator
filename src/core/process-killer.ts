@@ -60,10 +60,7 @@ export class ProcessKiller {
           const success = await this.killProcess(pid, force, gracefulTimeout);
           results.set(pid, success);
         } catch (error) {
-          // Log error for debugging but don't throw - continue with other processes
-          if (error instanceof Error) {
-            console.debug(`Failed to kill process ${pid}: ${error.message}`);
-          }
+          // Silently handle errors - continue with other processes
           results.set(pid, false);
         }
       })
@@ -93,12 +90,7 @@ export class ProcessKiller {
           killedProcesses.push(process);
         }
       } catch (error) {
-        // Log error for debugging but continue with other processes
-        if (error instanceof Error) {
-          console.debug(
-            `Failed to kill process ${process.pid} (${process.name}) on port ${port}: ${error.message}`
-          );
-        }
+        // Silently handle errors - continue with other processes
       }
     }
 
@@ -124,10 +116,7 @@ export class ProcessKiller {
           );
           results.set(port, killedProcesses);
         } catch (error) {
-          // Log error for debugging but don't throw - continue with other ports
-          if (error instanceof Error) {
-            console.debug(`Failed to kill processes on port ${port}: ${error.message}`);
-          }
+          // Silently handle errors - continue with other ports
           results.set(port, []);
         }
       })
