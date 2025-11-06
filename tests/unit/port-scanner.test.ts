@@ -152,6 +152,31 @@ describe('PortScanner', () => {
       expect(result).toBe(3000);
       expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenCalledWith(3000, undefined);
     });
+
+    it('should not exceed maximum port number 65535', async () => {
+      mockProcessFinderInstance.isPortAvailable.mockResolvedValue(false);
+
+      // Try to scan from 65500 with 100 attempts (would go to 65599 without validation)
+      const result = await portScanner.findAvailablePort(65500, 100);
+
+      expect(result).toBeNull();
+      // Should only check ports 65500-65535 (36 ports)
+      expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenCalledTimes(36);
+      // Verify the last port checked was 65535
+      expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenLastCalledWith(
+        65535,
+        undefined
+      );
+    });
+
+    it('should return port when found before exceeding max port', async () => {
+      // Make port 65530 available
+      mockProcessFinderInstance.isPortAvailable.mockImplementation(async (port) => port === 65530);
+
+      const result = await portScanner.findAvailablePort(65520, 100);
+
+      expect(result).toBe(65530);
+    });
   });
 
   describe('findAvailablePorts', () => {
@@ -185,6 +210,32 @@ describe('PortScanner', () => {
 
       expect(result).toEqual([3000, 3001]);
       expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not exceed maximum port number 65535', async () => {
+      mockProcessFinderInstance.isPortAvailable.mockResolvedValue(true);
+
+      // Try to find 10 ports starting from 65530 (would go to 65539 without validation)
+      const result = await portScanner.findAvailablePorts(10, 65530, 100);
+
+      // Should only return ports 65530-65535 (6 ports)
+      expect(result).toEqual([65530, 65531, 65532, 65533, 65534, 65535]);
+      expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenCalledTimes(6);
+    });
+
+    it('should stop at port 65535 even with max attempts remaining', async () => {
+      mockProcessFinderInstance.isPortAvailable.mockResolvedValue(false);
+
+      const result = await portScanner.findAvailablePorts(10, 65530, 1000);
+
+      // Should check ports 65530-65535 (6 ports) then stop
+      expect(result).toEqual([]);
+      expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenCalledTimes(6);
+      // Verify the last port checked was 65535
+      expect(mockProcessFinderInstance.isPortAvailable).toHaveBeenLastCalledWith(
+        65535,
+        undefined
+      );
     });
   });
 });

@@ -91,6 +91,12 @@ export class PortScanner {
   ): Promise<number | null> {
     for (let i = 0; i < maxAttempts; i++) {
       const port = startPort + i;
+
+      // Stop if we exceed the maximum valid port number
+      if (port > 65535) {
+        break;
+      }
+
       const isAvailable = await this.processFinder.isPortAvailable(port, protocol);
 
       if (isAvailable) {
@@ -112,6 +118,11 @@ export class PortScanner {
     let currentPort = startPort;
 
     while (availablePorts.length < count && attempts < maxAttempts) {
+      // Stop if we exceed the maximum valid port number
+      if (currentPort > 65535) {
+        break;
+      }
+
       const isAvailable = await this.processFinder.isPortAvailable(currentPort, protocol);
 
       if (isAvailable) {
