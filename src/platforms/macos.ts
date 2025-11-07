@@ -115,13 +115,14 @@ export class MacOSPlatform implements IPlatformImplementation {
       let stdout = '';
       let stderr = '';
       let isResolved = false;
+      let killTimeout: NodeJS.Timeout | null = null;
 
       // Set up timeout
       const timeout = setTimeout(() => {
         if (!isResolved) {
           isResolved = true;
           child.kill('SIGTERM');
-          setTimeout(() => child.kill('SIGKILL'), 5000);
+          killTimeout = setTimeout(() => child.kill('SIGKILL'), 5000);
           reject(
             new CommandExecutionError(
               `${command} ${args.join(' ')}`,
@@ -144,6 +145,7 @@ export class MacOSPlatform implements IPlatformImplementation {
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
+          if (killTimeout) clearTimeout(killTimeout);
           if (code === 0) {
             resolve({ stdout, stderr, exitCode: code });
           } else {
@@ -156,6 +158,7 @@ export class MacOSPlatform implements IPlatformImplementation {
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
+          if (killTimeout) clearTimeout(killTimeout);
           reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
         }
       });
@@ -167,7 +170,9 @@ export class MacOSPlatform implements IPlatformImplementation {
     // We cannot kill processes without PIDs, so we throw an error
     // instead of returning processes with PID 0
     const protocols = protocol === 'both' ? ['tcp', 'udp'] : [protocol];
+    let portFound = false;
 
+    // Check all protocols before throwing error
     for (const proto of protocols) {
       try {
         const netstatResult = await this.executeCommand('netstat', [
@@ -198,11 +203,9 @@ export class MacOSPlatform implements IPlatformImplementation {
           const localPort = parseInt(portMatch[1], 10);
           if (localPort === port) {
             // Port is in use but we cannot determine PID
-            throw new CommandExecutionError(
-              'lsof (fallback to netstat)',
-              1,
-              'Process found on port but cannot determine PID. lsof command not available.'
-            );
+            // Mark as found but continue checking other protocols
+            portFound = true;
+            break;
           }
         }
       } catch (error) {
@@ -211,6 +214,15 @@ export class MacOSPlatform implements IPlatformImplementation {
         }
         // Continue to next protocol
       }
+    }
+
+    // If port was found in any protocol, throw error since we can't get PID
+    if (portFound) {
+      throw new CommandExecutionError(
+        'lsof (fallback to netstat)',
+        1,
+        'Process found on port but cannot determine PID. lsof command not available.'
+      );
     }
 
     // Port not found in netstat output
