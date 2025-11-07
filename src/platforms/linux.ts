@@ -190,13 +190,14 @@ export class LinuxPlatform implements IPlatformImplementation {
       let stdout = '';
       let stderr = '';
       let isResolved = false;
+      let killTimeout: NodeJS.Timeout | null = null;
 
       // Set up timeout
       const timeout = setTimeout(() => {
         if (!isResolved) {
           isResolved = true;
           child.kill('SIGTERM');
-          setTimeout(() => child.kill('SIGKILL'), 5000);
+          killTimeout = setTimeout(() => child.kill('SIGKILL'), 5000);
           reject(
             new CommandExecutionError(
               `${command} ${args.join(' ')}`,
@@ -219,6 +220,7 @@ export class LinuxPlatform implements IPlatformImplementation {
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
+          if (killTimeout) clearTimeout(killTimeout);
           if (code === 0) {
             resolve({ stdout, stderr, exitCode: code });
           } else {
@@ -231,6 +233,7 @@ export class LinuxPlatform implements IPlatformImplementation {
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
+          if (killTimeout) clearTimeout(killTimeout);
           reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
         }
       });

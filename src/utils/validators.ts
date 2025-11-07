@@ -35,7 +35,7 @@ export function validatePorts(ports: (number | string)[]): number[] {
 
 export function validateTimeout(timeout: number): number {
   if (timeout < 0 || !isFinite(timeout)) {
-    throw new Error(`Invalid timeout: ${timeout}. Timeout must be a positive number`);
+    throw new Error(`Invalid timeout: ${timeout}. Timeout must be a non-negative number`);
   }
   return timeout;
 }
