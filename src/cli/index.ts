@@ -44,8 +44,15 @@ class CLI {
       const result = await this.executeCommand(options);
 
       if (options.json) {
-        console.log(JSON.stringify(result, null, 2));
-      } else if (result.message) {
+        // Use process.stdout.write with callback to ensure buffer is flushed before exit
+        const json = JSON.stringify(result, null, 2) + '\n';
+        process.stdout.write(json, () => {
+          process.exit(result.success ? 0 : 1);
+        });
+        return;
+      }
+
+      if (result.message) {
         if (result.success) {
           this.logger.info(result.message);
         } else {
@@ -258,22 +265,22 @@ For more information, visit: https://github.com/ersinkoc/port-terminator
   }
 }
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason) => {
-  const logger = new Logger();
-  logger.error('Unhandled promise rejection:', reason);
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  const logger = new Logger();
-  logger.error('Uncaught exception:', error.message);
-  process.exit(1);
-});
-
 // Run CLI if this file is executed directly
 if (require.main === module) {
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason) => {
+    const logger = new Logger();
+    logger.error('Unhandled promise rejection:', reason);
+    process.exit(1);
+  });
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    const logger = new Logger();
+    logger.error('Uncaught exception:', error.message);
+    process.exit(1);
+  });
+
   const cli = new CLI();
   cli.run().catch((error) => {
     const logger = new Logger();
