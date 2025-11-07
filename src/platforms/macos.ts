@@ -166,51 +166,55 @@ export class MacOSPlatform implements IPlatformImplementation {
     // WARNING: netstat fallback cannot determine PIDs on macOS
     // We cannot kill processes without PIDs, so we throw an error
     // instead of returning processes with PID 0
-    try {
-      const netstatResult = await this.executeCommand('netstat', [
-        '-an',
-        '-p',
-        protocol === 'both' ? 'tcp' : protocol,
-      ]);
-      const lines = netstatResult.stdout.split('\n');
+    const protocols = protocol === 'both' ? ['tcp', 'udp'] : [protocol];
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('Active') || trimmed.startsWith('Proto')) {
-          continue;
+    for (const proto of protocols) {
+      try {
+        const netstatResult = await this.executeCommand('netstat', [
+          '-an',
+          '-p',
+          proto,
+        ]);
+        const lines = netstatResult.stdout.split('\n');
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('Active') || trimmed.startsWith('Proto')) {
+            continue;
+          }
+
+          const parts = trimmed.split(/\s+/);
+          if (parts.length < 6) continue;
+
+          const [protoName, , , localAddress] = parts;
+
+          if (!protoName.toLowerCase().includes(proto)) {
+            continue;
+          }
+
+          const portMatch = localAddress.match(/\.(\d+)$/);
+          if (!portMatch) continue;
+
+          const localPort = parseInt(portMatch[1], 10);
+          if (localPort === port) {
+            // Port is in use but we cannot determine PID
+            throw new CommandExecutionError(
+              'lsof (fallback to netstat)',
+              1,
+              'Process found on port but cannot determine PID. lsof command not available.'
+            );
+          }
         }
-
-        const parts = trimmed.split(/\s+/);
-        if (parts.length < 6) continue;
-
-        const [proto, , , localAddress] = parts;
-
-        if (protocol !== 'both' && !proto.toLowerCase().includes(protocol)) {
-          continue;
+      } catch (error) {
+        if (error instanceof CommandExecutionError) {
+          throw error;
         }
-
-        const portMatch = localAddress.match(/\.(\d+)$/);
-        if (!portMatch) continue;
-
-        const localPort = parseInt(portMatch[1], 10);
-        if (localPort === port) {
-          // Port is in use but we cannot determine PID
-          throw new CommandExecutionError(
-            'lsof (fallback to netstat)',
-            1,
-            'Process found on port but cannot determine PID. lsof command not available.'
-          );
-        }
+        // Continue to next protocol
       }
-
-      // Port not found in netstat output
-      return [];
-    } catch (error) {
-      if (error instanceof CommandExecutionError) {
-        throw error;
-      }
-      return [];
     }
+
+    // Port not found in netstat output
+    return [];
   }
 
   private async getProcessCommand(pid: number): Promise<string | undefined> {
