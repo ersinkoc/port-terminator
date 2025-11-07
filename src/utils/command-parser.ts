@@ -1,5 +1,5 @@
 import type { ICliOptions } from '../types';
-import { validatePort, parsePortRange } from './validators';
+import { validatePort, parsePortRange, normalizeProtocol } from './validators';
 
 interface IArgument {
   name: string;
@@ -62,7 +62,8 @@ export class CommandParser {
         case 'method':
         case 'm':
           if (typeof arg.value === 'string') {
-            options.method = arg.value as 'tcp' | 'udp' | 'both';
+            // Validate and normalize the protocol value
+            options.method = normalizeProtocol(arg.value);
           }
           break;
         case 'range':

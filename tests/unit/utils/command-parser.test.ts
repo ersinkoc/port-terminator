@@ -429,14 +429,18 @@ describe('CommandParser', () => {
   });
 
   describe('argument parsing edge cases', () => {
-    it('should handle equals sign in long arguments', () => {
-      const options = new CommandParser(['--method=tcp=udp']).parse();
-      expect(options.method).toBe('tcp=udp');
+    it('should reject method with equals sign in value (invalid protocol)', () => {
+      // Parser correctly extracts value, but normalizeProtocol rejects it
+      expect(() => {
+        new CommandParser(['--method=tcp=udp']).parse();
+      }).toThrow(/Invalid protocol.*tcp=udp/i);
     });
 
-    it('should handle multiple equals signs', () => {
-      const options = new CommandParser(['--method=key=value=extra']).parse();
-      expect(options.method).toBe('key=value=extra');
+    it('should reject method with multiple equals signs (invalid protocol)', () => {
+      // Parser correctly extracts value, but normalizeProtocol rejects it
+      expect(() => {
+        new CommandParser(['--method=key=value=extra']).parse();
+      }).toThrow(/Invalid protocol.*key=value=extra/i);
     });
 
     it('should handle empty value after equals', () => {
