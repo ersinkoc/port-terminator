@@ -58,12 +58,18 @@ class CLI {
         } else {
           this.logger.error(result.message);
         }
+
+        // Ensure output buffer is flushed before exit (BUG-2025-005 fix)
+        await new Promise<void>((resolve) => setImmediate(resolve));
       }
 
       process.exit(result.success ? 0 : 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(message);
+
+      // Ensure error output is flushed before exit (BUG-2025-005 fix)
+      await new Promise<void>((resolve) => setImmediate(resolve));
       process.exit(1);
     }
   }

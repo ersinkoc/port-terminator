@@ -87,6 +87,9 @@ export class Logger implements ILogger {
   }
 
   private formatMessage(message: string, args: unknown[]): string {
+    // Create a copy to avoid mutating the original args array (BUG-2025-006 fix)
+    const argsCopy = [...args];
+
     return message.replace(/%./g, (match) => {
       switch (match) {
         case '%%':
@@ -95,8 +98,8 @@ export class Logger implements ILogger {
         case '%d':
         case '%j':
         case '%o': {
-          if (args.length === 0) return match;
-          const arg = args.shift();
+          if (argsCopy.length === 0) return match;
+          const arg = argsCopy.shift();
           switch (match) {
             case '%s':
               return String(arg);

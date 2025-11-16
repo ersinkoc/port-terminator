@@ -53,10 +53,14 @@ export class TimeoutError extends PortTerminatorError {
 
 export class InvalidPortError extends PortTerminatorError {
   constructor(port: number | string) {
-    // Only preserve port value if it's a number or a parseable numeric string
-    const portValue = typeof port === 'number' ? port :
-                      (!isNaN(parseInt(port, 10)) && isFinite(parseInt(port, 10))) ? port :
-                      undefined;
+    // Only preserve port value if it's a number or a parseable numeric string (BUG-2025-008 fix)
+    let portValue: number | string | undefined;
+    if (typeof port === 'number') {
+      portValue = port;
+    } else {
+      const parsed = parseInt(port, 10);
+      portValue = (!isNaN(parsed) && isFinite(parsed)) ? port : undefined;
+    }
 
     super(
       `Invalid port number: ${port}. Port must be between 1 and 65535`,
