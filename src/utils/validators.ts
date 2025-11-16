@@ -41,6 +41,13 @@ export function validateTimeout(timeout: number): number {
 }
 
 export function parsePortRange(range: string, maxRangeSize = 1000): number[] {
+  // Validate maxRangeSize parameter (BUG-2025-007 fix)
+  if (maxRangeSize <= 0 || !Number.isInteger(maxRangeSize) || !isFinite(maxRangeSize)) {
+    throw new Error(
+      `Invalid maxRangeSize: ${maxRangeSize}. Must be a positive integer`
+    );
+  }
+
   const rangeParts = range.split('-');
   if (rangeParts.length !== 2) {
     throw new Error(`Invalid port range: ${range}. Expected format: start-end`);

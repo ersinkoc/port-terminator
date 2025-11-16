@@ -142,10 +142,15 @@ export class MacOSPlatform implements IPlatformImplementation {
       });
 
       child.on('close', (code) => {
+        // ALWAYS clear killTimeout to prevent resource leak (BUG-2025-004 fix)
+        if (killTimeout) {
+          clearTimeout(killTimeout);
+          killTimeout = null;
+        }
+
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
-          if (killTimeout) clearTimeout(killTimeout);
           if (code === 0) {
             resolve({ stdout, stderr, exitCode: code });
           } else {
@@ -155,10 +160,15 @@ export class MacOSPlatform implements IPlatformImplementation {
       });
 
       child.on('error', (error) => {
+        // ALWAYS clear killTimeout to prevent resource leak (BUG-2025-004 fix)
+        if (killTimeout) {
+          clearTimeout(killTimeout);
+          killTimeout = null;
+        }
+
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
-          if (killTimeout) clearTimeout(killTimeout);
           reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
         }
       });
