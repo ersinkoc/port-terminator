@@ -1,6 +1,7 @@
-import { spawn } from 'child_process';
-import type { IPlatformImplementation, IProcessInfo, ICommandResult } from '../types';
+import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
+import { executeCommand } from '../utils/execute-command';
+import { deduplicateProcesses } from '../utils/process-utils';
 
 export class LinuxPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
@@ -12,14 +13,14 @@ export class LinuxPlatform implements IPlatformImplementation {
       processes = await this.findWithNetstat(port, protocol);
     }
 
-    return this.deduplicateProcesses(processes);
+    return deduplicateProcesses(processes);
   }
 
   async killProcess(pid: number, force = false): Promise<boolean> {
     try {
       if (!force) {
         try {
-          await this.executeCommand('kill', ['-TERM', pid.toString()]);
+          await executeCommand('kill', ['-TERM', pid.toString()]);
           await this.waitForProcessToExit(pid, 5000);
           return true;
         } catch {
@@ -27,7 +28,7 @@ export class LinuxPlatform implements IPlatformImplementation {
         }
       }
 
-      await this.executeCommand('kill', ['-KILL', pid.toString()]);
+      await executeCommand('kill', ['-KILL', pid.toString()]);
       await this.waitForProcessToExit(pid, 2000);
       return true;
     } catch (error) {
@@ -51,7 +52,7 @@ export class LinuxPlatform implements IPlatformImplementation {
   async isProcessRunning(pid: number): Promise<boolean> {
     try {
       // Use kill -0 to check if process exists without actually killing it
-      await this.executeCommand('kill', ['-0', pid.toString()]);
+      await executeCommand('kill', ['-0', pid.toString()]);
       return true;
     } catch {
       // If command fails, process doesn't exist
@@ -65,7 +66,7 @@ export class LinuxPlatform implements IPlatformImplementation {
 
     for (const proto of protocols) {
       try {
-        const lsofResult = await this.executeCommand('lsof', [
+        const lsofResult = await executeCommand('lsof', [
           '-i',
           `${proto}:${port}`,
           '-P',
@@ -116,7 +117,7 @@ export class LinuxPlatform implements IPlatformImplementation {
         args.push(`--${protocol}`);
       }
 
-      const netstatResult = await this.executeCommand('netstat', args);
+      const netstatResult = await executeCommand('netstat', args);
       const lines = netstatResult.stdout.split('\n');
 
       for (const line of lines) {
@@ -153,8 +154,6 @@ export class LinuxPlatform implements IPlatformImplementation {
 
         // Skip processes with PID 0 (cannot be killed)
         if (pid === 0) {
-          // This means netstat found the port but couldn't determine PID
-          // Likely because the command was run without sufficient privileges
           continue;
         }
 
@@ -177,82 +176,9 @@ export class LinuxPlatform implements IPlatformImplementation {
     }
   }
 
-  private async executeCommand(
-    command: string,
-    args: string[],
-    timeoutMs = 30000
-  ): Promise<ICommandResult> {
-    return new Promise((resolve, reject) => {
-      const child = spawn(command, args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      let stdout = '';
-      let stderr = '';
-      let isResolved = false;
-      let killTimeout: NodeJS.Timeout | null = null;
-
-      // Set up timeout
-      const timeout = setTimeout(() => {
-        if (!isResolved) {
-          isResolved = true;
-          child.kill('SIGTERM');
-          killTimeout = setTimeout(() => child.kill('SIGKILL'), 5000);
-          reject(
-            new CommandExecutionError(
-              `${command} ${args.join(' ')}`,
-              1,
-              `Command timed out after ${timeoutMs}ms`
-            )
-          );
-        }
-      }, timeoutMs);
-
-      child.stdout?.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr?.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        // ALWAYS clear killTimeout to prevent resource leak (BUG-2025-004 fix)
-        if (killTimeout) {
-          clearTimeout(killTimeout);
-          killTimeout = null;
-        }
-
-        if (!isResolved) {
-          isResolved = true;
-          clearTimeout(timeout);
-          if (code === 0) {
-            resolve({ stdout, stderr, exitCode: code });
-          } else {
-            reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
-          }
-        }
-      });
-
-      child.on('error', (error) => {
-        // ALWAYS clear killTimeout to prevent resource leak (BUG-2025-004 fix)
-        if (killTimeout) {
-          clearTimeout(killTimeout);
-          killTimeout = null;
-        }
-
-        if (!isResolved) {
-          isResolved = true;
-          clearTimeout(timeout);
-          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
-        }
-      });
-    });
-  }
-
   private async getProcessCommand(pid: number): Promise<string | undefined> {
     try {
-      const result = await this.executeCommand('ps', ['-p', pid.toString(), '-o', 'command=']);
+      const result = await executeCommand('ps', ['-p', pid.toString(), '-o', 'command=']);
       return result.stdout.trim() || undefined;
     } catch {
       return undefined;
@@ -261,7 +187,7 @@ export class LinuxPlatform implements IPlatformImplementation {
 
   private async getProcessUser(pid: number): Promise<string | undefined> {
     try {
-      const result = await this.executeCommand('ps', ['-p', pid.toString(), '-o', 'user=']);
+      const result = await executeCommand('ps', ['-p', pid.toString(), '-o', 'user=']);
       return result.stdout.trim() || undefined;
     } catch {
       return undefined;
@@ -273,23 +199,11 @@ export class LinuxPlatform implements IPlatformImplementation {
 
     while (Date.now() - startTime < timeout) {
       try {
-        await this.executeCommand('kill', ['-0', pid.toString()]);
+        await executeCommand('kill', ['-0', pid.toString()]);
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch {
         return;
       }
     }
-  }
-
-  private deduplicateProcesses(processes: IProcessInfo[]): IProcessInfo[] {
-    const seen = new Set<string>();
-    return processes.filter((process) => {
-      const key = `${process.pid}-${process.port}-${process.protocol}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
   }
 }

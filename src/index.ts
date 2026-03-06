@@ -1,7 +1,7 @@
 import type { IPortTerminatorOptions, IProcessInfo, ITerminationResult } from './types';
 import { ProcessFinder } from './core/process-finder';
 import { ProcessKiller } from './core/process-killer';
-import { validatePort, validatePorts, validateTimeout } from './utils/validators';
+import { validatePort, validatePorts, validateTimeout, normalizeProtocol } from './utils/validators';
 import { TimeoutError } from './errors';
 import { Logger } from './utils/logger';
 
@@ -38,7 +38,7 @@ export class PortTerminator {
     this.processKiller = new ProcessKiller();
 
     this.options = {
-      method: options.method || 'both',
+      method: options.method !== undefined ? normalizeProtocol(options.method) : 'both',
       timeout: options.timeout !== undefined ? options.timeout : 30000,
       force: options.force || false,
       silent: options.silent || false,
