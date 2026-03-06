@@ -1,13 +1,14 @@
-import { spawn } from 'child_process';
-import type { IPlatformImplementation, IProcessInfo, ICommandResult } from '../types';
+import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
+import { executeCommand } from '../utils/execute-command';
+import { deduplicateProcesses } from '../utils/process-utils';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
     const processes: IProcessInfo[] = [];
 
     try {
-      const netstatResult = await this.executeCommand('netstat', ['-ano']);
+      const netstatResult = await this.execCmd('netstat', ['-ano']);
       const lines = netstatResult.stdout.split('\n');
 
       for (const line of lines) {
@@ -59,7 +60,7 @@ export class WindowsPlatform implements IPlatformImplementation {
         }
       }
 
-      return this.deduplicateProcesses(processes);
+      return deduplicateProcesses(processes);
     } catch (error) {
       throw new CommandExecutionError(
         'netstat -ano',
@@ -72,7 +73,7 @@ export class WindowsPlatform implements IPlatformImplementation {
   async killProcess(pid: number, force = false): Promise<boolean> {
     try {
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()];
-      await this.executeCommand('taskkill', args);
+      await this.execCmd('taskkill', args);
 
       await this.waitForProcessToExit(pid, 5000);
       return true;
@@ -96,7 +97,7 @@ export class WindowsPlatform implements IPlatformImplementation {
 
   async isProcessRunning(pid: number): Promise<boolean> {
     try {
-      const result = await this.executeCommand('tasklist', [
+      const result = await this.execCmd('tasklist', [
         '/FI',
         `PID eq ${pid}`,
         '/FO',
@@ -104,92 +105,22 @@ export class WindowsPlatform implements IPlatformImplementation {
         '/NH',
       ]);
 
-      // If tasklist returns output, the process exists
-      const lines = result.stdout.trim().split('\n');
-      return lines.length > 0 && lines[0].trim().length > 0;
+      // tasklist returns "INFO: No tasks..." when PID doesn't exist
+      const output = result.stdout.trim();
+      return output.length > 0 && !output.includes('INFO:') && output.includes(pid.toString());
     } catch {
       // If command fails, process doesn't exist
       return false;
     }
   }
 
-  private async executeCommand(
-    command: string,
-    args: string[],
-    timeoutMs = 30000
-  ): Promise<ICommandResult> {
-    return new Promise((resolve, reject) => {
-      const child = spawn(command, args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
-
-      let stdout = '';
-      let stderr = '';
-      let isResolved = false;
-      let killTimeout: NodeJS.Timeout | null = null;
-
-      // Set up timeout
-      const timeout = setTimeout(() => {
-        if (!isResolved) {
-          isResolved = true;
-          child.kill('SIGTERM');
-          killTimeout = setTimeout(() => child.kill('SIGKILL'), 5000);
-          reject(
-            new CommandExecutionError(
-              `${command} ${args.join(' ')}`,
-              1,
-              `Command timed out after ${timeoutMs}ms`
-            )
-          );
-        }
-      }, timeoutMs);
-
-      child.stdout?.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr?.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        // ALWAYS clear killTimeout to prevent resource leak (BUG-2025-004 fix)
-        if (killTimeout) {
-          clearTimeout(killTimeout);
-          killTimeout = null;
-        }
-
-        if (!isResolved) {
-          isResolved = true;
-          clearTimeout(timeout);
-          if (code === 0) {
-            resolve({ stdout, stderr, exitCode: code });
-          } else {
-            reject(new CommandExecutionError(`${command} ${args.join(' ')}`, code || 1, stderr));
-          }
-        }
-      });
-
-      child.on('error', (error) => {
-        // ALWAYS clear killTimeout to prevent resource leak (BUG-2025-004 fix)
-        if (killTimeout) {
-          clearTimeout(killTimeout);
-          killTimeout = null;
-        }
-
-        if (!isResolved) {
-          isResolved = true;
-          clearTimeout(timeout);
-          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, error.message));
-        }
-      });
-    });
+  private execCmd(command: string, args: string[]) {
+    return executeCommand(command, args, { windowsHide: true });
   }
 
   private async getProcessName(pid: number): Promise<string> {
     try {
-      const result = await this.executeCommand('tasklist', [
+      const result = await this.execCmd('tasklist', [
         '/FI',
         `PID eq ${pid}`,
         '/FO',
@@ -214,7 +145,7 @@ export class WindowsPlatform implements IPlatformImplementation {
 
   private async getProcessCommand(pid: number): Promise<string | undefined> {
     try {
-      const result = await this.executeCommand('wmic', [
+      const result = await this.execCmd('wmic', [
         'process',
         'where',
         `ProcessId=${pid}`,
@@ -240,7 +171,7 @@ export class WindowsPlatform implements IPlatformImplementation {
   private async getProcessUser(pid: number): Promise<string | undefined> {
     try {
       // Query for the process owner using tasklist /V
-      const result = await this.executeCommand('tasklist', [
+      const result = await this.execCmd('tasklist', [
         '/FI',
         `PID eq ${pid}`,
         '/FO',
@@ -272,7 +203,11 @@ export class WindowsPlatform implements IPlatformImplementation {
 
     while (Date.now() - startTime < timeout) {
       try {
-        await this.executeCommand('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV']);
+        const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
+        // tasklist returns "INFO: No tasks..." when PID doesn't exist
+        if (result.stdout.includes('INFO:') || !result.stdout.includes(pid.toString())) {
+          return;
+        }
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch {
         return;
@@ -305,15 +240,4 @@ export class WindowsPlatform implements IPlatformImplementation {
     return result.map((item) => item.replace(/^"(.*)"$/, '$1'));
   }
 
-  private deduplicateProcesses(processes: IProcessInfo[]): IProcessInfo[] {
-    const seen = new Set<string>();
-    return processes.filter((process) => {
-      const key = `${process.pid}-${process.port}-${process.protocol}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  }
 }

@@ -9,17 +9,19 @@ export enum ErrorCode {
 }
 
 export class PortTerminatorError extends Error {
-  public readonly code: string;
+  public readonly code: ErrorCode;
   public readonly port?: number | string;
   public readonly pid?: number;
 
-  constructor(message: string, code: string, port?: number | string, pid?: number) {
+  constructor(message: string, code: ErrorCode, port?: number | string, pid?: number) {
     super(message);
     this.name = 'PortTerminatorError';
     this.code = code;
     this.port = port;
     this.pid = pid;
-    Error.captureStackTrace(this, this.constructor);
+    if (typeof Error.captureStackTrace === 'function') {
+      Error.captureStackTrace(this, this.constructor);
+    }
   }
 }
 

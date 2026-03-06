@@ -7,16 +7,17 @@ import {
   InvalidPortError,
   CommandExecutionError,
   ProcessKillError,
+  ErrorCode,
 } from '../../../src/errors';
 
 describe('Error Classes', () => {
   describe('PortTerminatorError', () => {
     it('should create error with message and code', () => {
-      const error = new PortTerminatorError('Test message', 'TEST_CODE');
+      const error = new PortTerminatorError('Test message', ErrorCode.COMMAND_EXECUTION_FAILED);
 
       expect(error.name).toBe('PortTerminatorError');
       expect(error.message).toBe('Test message');
-      expect(error.code).toBe('TEST_CODE');
+      expect(error.code).toBe('COMMAND_EXECUTION_FAILED');
       expect(error.port).toBeUndefined();
       expect(error.pid).toBeUndefined();
       expect(error).toBeInstanceOf(Error);
@@ -24,28 +25,28 @@ describe('Error Classes', () => {
     });
 
     it('should create error with port information', () => {
-      const error = new PortTerminatorError('Test message', 'TEST_PORT', 3000);
+      const error = new PortTerminatorError('Test message', ErrorCode.INVALID_PORT, 3000);
 
       expect(error.port).toBe(3000);
       expect(error.pid).toBeUndefined();
     });
 
     it('should create error with pid information', () => {
-      const error = new PortTerminatorError('Test message', 'TEST_PID', undefined, 1234);
+      const error = new PortTerminatorError('Test message', ErrorCode.PROCESS_KILL_FAILED, undefined, 1234);
 
       expect(error.port).toBeUndefined();
       expect(error.pid).toBe(1234);
     });
 
     it('should create error with both port and pid', () => {
-      const error = new PortTerminatorError('Test message', 'TEST_BOTH', 3000, 1234);
+      const error = new PortTerminatorError('Test message', ErrorCode.PROCESS_NOT_FOUND, 3000, 1234);
 
       expect(error.port).toBe(3000);
       expect(error.pid).toBe(1234);
     });
 
     it('should capture stack trace', () => {
-      const error = new PortTerminatorError('Test message', 'TEST_STACK');
+      const error = new PortTerminatorError('Test message', ErrorCode.OPERATION_TIMEOUT);
 
       expect(error.stack).toBeDefined();
       expect(error.stack).toContain('PortTerminatorError');
@@ -353,14 +354,14 @@ describe('Error Classes', () => {
     });
 
     it('should serialize PortTerminatorError with port and pid', () => {
-      const error = new PortTerminatorError('test', 'TEST', 3000, 1234);
+      const error = new PortTerminatorError('test', ErrorCode.PROCESS_NOT_FOUND, 3000, 1234);
 
       const serialized = JSON.stringify(error);
       const parsed = JSON.parse(serialized);
 
       expect(parsed.port).toBe(3000);
       expect(parsed.pid).toBe(1234);
-      expect(parsed.code).toBe('TEST');
+      expect(parsed.code).toBe('PROCESS_NOT_FOUND');
     });
   });
 });

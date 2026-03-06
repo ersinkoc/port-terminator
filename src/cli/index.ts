@@ -274,14 +274,14 @@ For more information, visit: https://github.com/ersinkoc/port-terminator
 // Run CLI if this file is executed directly
 if (require.main === module) {
   // Handle unhandled promise rejections
-  process.on('unhandledRejection', (reason) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     const logger = new Logger();
-    logger.error('Unhandled promise rejection:', reason);
+    logger.error('Unhandled promise rejection:', reason instanceof Error ? reason.message : String(reason));
     process.exit(1);
   });
 
   // Handle uncaught exceptions
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', (error: Error) => {
     const logger = new Logger();
     logger.error('Uncaught exception:', error.message);
     process.exit(1);
