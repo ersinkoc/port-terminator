@@ -1,7 +1,7 @@
 import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
-import { deduplicateProcesses } from '../utils/process-utils';
+import { deduplicateProcesses, waitForProcessExit } from '../utils/process-utils';
 
 export class LinuxPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
@@ -21,7 +21,7 @@ export class LinuxPlatform implements IPlatformImplementation {
       if (!force) {
         try {
           await executeCommand('kill', ['-TERM', pid.toString()]);
-          await this.waitForProcessToExit(pid, 5000);
+          await waitForProcessExit(() => this.isProcessRunning(pid), 5000);
           return true;
         } catch {
           // Fall through to force kill
@@ -29,7 +29,7 @@ export class LinuxPlatform implements IPlatformImplementation {
       }
 
       await executeCommand('kill', ['-KILL', pid.toString()]);
-      await this.waitForProcessToExit(pid, 2000);
+      await waitForProcessExit(() => this.isProcessRunning(pid), 2000);
       return true;
     } catch (error) {
       if (error instanceof CommandExecutionError) {
@@ -191,19 +191,6 @@ export class LinuxPlatform implements IPlatformImplementation {
       return result.stdout.trim() || undefined;
     } catch {
       return undefined;
-    }
-  }
-
-  private async waitForProcessToExit(pid: number, timeout: number): Promise<void> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-      try {
-        await executeCommand('kill', ['-0', pid.toString()]);
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch {
-        return;
-      }
     }
   }
 }

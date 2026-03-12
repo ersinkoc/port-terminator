@@ -1,7 +1,7 @@
 import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
-import { deduplicateProcesses } from '../utils/process-utils';
+import { deduplicateProcesses, waitForProcessExit } from '../utils/process-utils';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
@@ -75,7 +75,7 @@ export class WindowsPlatform implements IPlatformImplementation {
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()];
       await this.execCmd('taskkill', args);
 
-      await this.waitForProcessToExit(pid, 5000);
+      await waitForProcessExit(() => this.isProcessRunning(pid), 5000);
       return true;
     } catch (error) {
       if (error instanceof CommandExecutionError) {
@@ -195,23 +195,6 @@ export class WindowsPlatform implements IPlatformImplementation {
       return undefined;
     } catch {
       return undefined;
-    }
-  }
-
-  private async waitForProcessToExit(pid: number, timeout: number): Promise<void> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-      try {
-        const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
-        // tasklist returns "INFO: No tasks..." when PID doesn't exist
-        if (result.stdout.includes('INFO:') || !result.stdout.includes(pid.toString())) {
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch {
-        return;
-      }
     }
   }
 

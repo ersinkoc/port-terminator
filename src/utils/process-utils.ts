@@ -15,3 +15,28 @@ export function deduplicateProcesses(processes: IProcessInfo[]): IProcessInfo[] 
     return true;
   });
 }
+
+/**
+ * Waits for a process to exit by polling a check function.
+ * @param checkRunning - Async function that returns true if the process is still running
+ * @param timeout - Maximum time to wait in milliseconds
+ */
+export async function waitForProcessExit(
+  checkRunning: () => Promise<boolean>,
+  timeout: number
+): Promise<void> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    try {
+      const isRunning = await checkRunning();
+      if (!isRunning) {
+        return;
+      }
+    } catch {
+      // If check fails, assume process has exited
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
