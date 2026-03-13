@@ -4,11 +4,14 @@ import { WindowsPlatform } from '../platforms/windows';
 import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
+import { Logger } from '../utils/logger';
 
 export class ProcessFinder {
   private platform: IPlatformImplementation;
+  private logger: Logger;
 
   constructor() {
+    this.logger = new Logger();
     const platformName = getPlatform();
 
     switch (platformName) {
@@ -39,7 +42,7 @@ export class ProcessFinder {
           const processes = await this.findByPort(port, protocol);
           results.set(port, processes);
         } catch (error) {
-          // Silently handle errors - continue with other ports
+          this.logger.error(`Failed to find processes on port ${port}:`, error);
           results.set(port, []);
         }
       })
