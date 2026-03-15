@@ -2,15 +2,18 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { normalizeProtocol } from '../utils/validators';
 
 export class LinuxPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
     let processes: IProcessInfo[] = [];
 
+    const normalizedProtocol = normalizeProtocol(protocol);
+
     try {
-      processes = await this.findWithLsof(port, protocol);
+      processes = await this.findWithLsof(port, normalizedProtocol);
     } catch (error) {
-      processes = await this.findWithNetstat(port, protocol);
+      processes = await this.findWithNetstat(port, normalizedProtocol);
     }
 
     return deduplicateProcesses(processes);

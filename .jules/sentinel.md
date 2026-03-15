@@ -1,0 +1,4 @@
+## 2026-03-15 - [Defense-in-depth] Command Injection Risk via Unvalidated Protocol Strings
+**Vulnerability:** The `protocol` argument in platform-specific `findProcessesByPort` methods (Linux, macOS, Windows) was directly interpolated or concatenated into shell commands (`lsof`, `netstat`) without local validation, relying entirely on higher-level APIs to sanitize the input.
+**Learning:** This architectural flaw breaks the defense-in-depth principle. If a new entry point or an internal refactor bypasses the top-level validation, malicious protocol strings (e.g., `tcp; rm -rf /`) could be injected into shell execution.
+**Prevention:** Always enforce defense-in-depth by validating and normalizing external inputs (like protocol strings via `normalizeProtocol`) at the lowest architectural layer, immediately before they are interpolated into shell commands or sensitive operations, even if top-level APIs already perform validation.
