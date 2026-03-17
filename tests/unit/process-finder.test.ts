@@ -235,7 +235,7 @@ describe('ProcessFinder', () => {
         .mockResolvedValueOnce(false);
 
       const promise = processFinder.waitForPortToBeBusy(3000, 3000);
-      
+
       // Fast-forward time
       jest.runAllTimers();
 
@@ -247,7 +247,7 @@ describe('ProcessFinder', () => {
       mockPlatformInstance.isPortAvailable.mockResolvedValue(true);
 
       const promise = processFinder.waitForPortToBeBusy(3000, 1000);
-      
+
       // Fast-forward past timeout
       jest.runAllTimers();
 
