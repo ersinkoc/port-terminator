@@ -2,9 +2,11 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { normalizeProtocol } from '../utils/validators';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    protocol = normalizeProtocol(protocol);
     const processes: IProcessInfo[] = [];
 
     try {
@@ -91,6 +93,7 @@ export class WindowsPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
+    protocol = normalizeProtocol(protocol);
     const processes = await this.findProcessesByPort(port, protocol);
     return processes.length === 0;
   }

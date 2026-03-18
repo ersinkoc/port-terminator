@@ -1,0 +1,4 @@
+## 2026-03-06 - [Defense in Depth] Protocol parameter missing runtime validation at lowest layer
+**Vulnerability:** Arbitrary strings could be passed as the `protocol` and used in shell command construction within platform-specific search layers (via `executeCommand`).
+**Learning:** While the CLI and top-level logic normalized protocol strings properly (into 'tcp', 'udp', or 'both'), the lower level platform execution layers directly accepted arbitrary strings without runtime validation. Relying only on upper layers to sanitize inputs can lead to architectural security gaps if a developer accesses the inner layers directly.
+**Prevention:** Enforce defense-in-depth by strictly validating and normalizing external inputs at the absolute lowest architectural boundary—right before the input is interpolated into any shell commands.
