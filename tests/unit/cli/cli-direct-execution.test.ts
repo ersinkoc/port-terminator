@@ -7,7 +7,7 @@ describe('CLI Direct Execution', () => {
     // 1. The CLI is run as a main module
     // 2. An error occurs during execution
     // 3. The error handler logs the error and exits with code 1
-    
+
     // This test exists to document that the coverage is achieved through integration testing
     expect(true).toBe(true);
   });

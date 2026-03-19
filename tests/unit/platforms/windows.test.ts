@@ -13,7 +13,12 @@ describe.skip('WindowsPlatform', () => {
     platform = new WindowsPlatform();
   });
 
-  const createMockChild = (stdout: string, stderr: string = '', exitCode: number = 0, shouldError: boolean = false) => {
+  const createMockChild = (
+    stdout: string,
+    stderr: string = '',
+    exitCode: number = 0,
+    shouldError: boolean = false
+  ) => {
     const mockChild = {
       stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
@@ -39,11 +44,22 @@ describe.skip('WindowsPlatform', () => {
     return mockChild;
   };
 
-  const setupCommandMocks = (commandMap: Record<string, { stdout: string; stderr?: string; exitCode?: number; shouldError?: boolean }>) => {
+  const setupCommandMocks = (
+    commandMap: Record<
+      string,
+      { stdout: string; stderr?: string; exitCode?: number; shouldError?: boolean }
+    >
+  ) => {
     mockSpawn.mockImplementation((command: string, args: string[]) => {
       const key = `${command} ${args.join(' ')}`;
-      const config = commandMap[key] || commandMap[command] || { stdout: '', stderr: '', exitCode: 0 };
-      return createMockChild(config.stdout, config.stderr || '', config.exitCode || 0, config.shouldError || false);
+      const config = commandMap[key] ||
+        commandMap[command] || { stdout: '', stderr: '', exitCode: 0 };
+      return createMockChild(
+        config.stdout,
+        config.stderr || '',
+        config.exitCode || 0,
+        config.shouldError || false
+      );
     });
   };
 
@@ -60,8 +76,12 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 1234 /FO CSV /NH': { stdout: '"node.exe","1234","Console","1","32,768 K"' },
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'CommandLine=node server.js\n\n' },
+        'tasklist /FI PID eq 1234 /FO CSV /NH': {
+          stdout: '"node.exe","1234","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'CommandLine=node server.js\n\n',
+        },
       });
 
       const processes = await platform.findProcessesByPort(3000, 'tcp');
@@ -89,8 +109,12 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"dns.exe","5678","Console","1","16,384 K"' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=dns.exe\n\n' },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"dns.exe","5678","Console","1","16,384 K"',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=dns.exe\n\n',
+        },
       });
 
       const processes = await platform.findProcessesByPort(3000, 'udp');
@@ -111,10 +135,18 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 1234 /FO CSV /NH': { stdout: '"node.exe","1234","Console","1","32,768 K"' },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"dns.exe","5678","Console","1","16,384 K"' },
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'CommandLine=node.exe\n\n' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=dns.exe\n\n' },
+        'tasklist /FI PID eq 1234 /FO CSV /NH': {
+          stdout: '"node.exe","1234","Console","1","32,768 K"',
+        },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"dns.exe","5678","Console","1","16,384 K"',
+        },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'CommandLine=node.exe\n\n',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=dns.exe\n\n',
+        },
       });
 
       const processes = await platform.findProcessesByPort(3000, 'both');
@@ -151,8 +183,12 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"nginx.exe","5678","Console","1","16,384 K"' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=nginx.exe\n\n' },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"nginx.exe","5678","Console","1","16,384 K"',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=nginx.exe\n\n',
+        },
       });
 
       const processes = await platform.findProcessesByPort(3000);
@@ -205,9 +241,17 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 1234 /FO CSV /NH': { stdout: '', stderr: 'Process not found', exitCode: 1 },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"nginx.exe","5678","Console","1","16,384 K"' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=nginx.exe\n\n' },
+        'tasklist /FI PID eq 1234 /FO CSV /NH': {
+          stdout: '',
+          stderr: 'Process not found',
+          exitCode: 1,
+        },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"nginx.exe","5678","Console","1","16,384 K"',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=nginx.exe\n\n',
+        },
       });
 
       const processes = await platform.findProcessesByPort(3000);
@@ -229,8 +273,12 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 1234 /FO CSV /NH': { stdout: '"node.exe","1234","Console","1","32,768 K"' },
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'CommandLine=node.exe\n\n' },
+        'tasklist /FI PID eq 1234 /FO CSV /NH': {
+          stdout: '"node.exe","1234","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'CommandLine=node.exe\n\n',
+        },
       });
 
       const processes = await platform.findProcessesByPort(3000);
@@ -243,7 +291,11 @@ Active Connections
     it('should kill process gracefully by default', async () => {
       setupCommandMocks({
         'taskkill /PID 1234': { stdout: 'Process killed successfully' },
-        'tasklist /FI PID eq 1234 /FO CSV': { stdout: '', stderr: 'Process not found', exitCode: 1 },
+        'tasklist /FI PID eq 1234 /FO CSV': {
+          stdout: '',
+          stderr: 'Process not found',
+          exitCode: 1,
+        },
       });
 
       const result = await platform.killProcess(1234, false);
@@ -254,12 +306,20 @@ Active Connections
     it('should force kill when requested', async () => {
       setupCommandMocks({
         'taskkill /F /PID 1234': { stdout: 'Process killed successfully' },
-        'tasklist /FI PID eq 1234 /FO CSV': { stdout: '', stderr: 'Process not found', exitCode: 1 },
+        'tasklist /FI PID eq 1234 /FO CSV': {
+          stdout: '',
+          stderr: 'Process not found',
+          exitCode: 1,
+        },
       });
 
       const result = await platform.killProcess(1234, true);
       expect(result).toBe(true);
-      expect(mockSpawn).toHaveBeenCalledWith('taskkill', ['/F', '/PID', '1234'], expect.any(Object));
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'taskkill',
+        ['/F', '/PID', '1234'],
+        expect.any(Object)
+      );
     });
 
     it('should handle access denied error', async () => {
@@ -325,8 +385,12 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 1234 /FO CSV /NH': { stdout: '"node.exe","1234","Console","1","32,768 K"' },
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'CommandLine=node.exe\n\n' },
+        'tasklist /FI PID eq 1234 /FO CSV /NH': {
+          stdout: '"node.exe","1234","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'CommandLine=node.exe\n\n',
+        },
       });
 
       const result = await platform.isPortAvailable(3000);
@@ -399,18 +463,18 @@ Active Connections
       const getProcessName = (platform as any).getProcessName;
 
       setupCommandMocks({
-        'tasklist /FI PID eq 1234 /FO CSV /NH': { stdout: '"node.exe","1234","Console","1","32,768 K"' },
+        'tasklist /FI PID eq 1234 /FO CSV /NH': {
+          stdout: '"node.exe","1234","Console","1","32,768 K"',
+        },
       });
 
       const name = await getProcessName(1234);
       expect(name).toBe('node.exe');
-      expect(mockSpawn).toHaveBeenCalledWith('tasklist', [
-        '/FI',
-        'PID eq 1234',
-        '/FO',
-        'CSV',
-        '/NH',
-      ], expect.any(Object));
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'tasklist',
+        ['/FI', 'PID eq 1234', '/FO', 'CSV', '/NH'],
+        expect.any(Object)
+      );
     });
 
     it('should return Unknown on error', async () => {
@@ -456,19 +520,18 @@ Active Connections
       const getProcessCommand = (platform as any).getProcessCommand;
 
       setupCommandMocks({
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'CommandLine=node server.js\n\n' },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'CommandLine=node server.js\n\n',
+        },
       });
 
       const command = await getProcessCommand(1234);
       expect(command).toBe('node server.js');
-      expect(mockSpawn).toHaveBeenCalledWith('wmic', [
-        'process',
-        'where',
-        'ProcessId=1234',
-        'get',
-        'CommandLine',
-        '/format:value',
-      ], expect.any(Object));
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'wmic',
+        ['process', 'where', 'ProcessId=1234', 'get', 'CommandLine', '/format:value'],
+        expect.any(Object)
+      );
     });
 
     it('should return undefined when command is empty', async () => {
@@ -476,7 +539,9 @@ Active Connections
       const getProcessCommand = (platform as any).getProcessCommand;
 
       setupCommandMocks({
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'CommandLine=\n\n' },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'CommandLine=\n\n',
+        },
       });
 
       const command = await getProcessCommand(1234);
@@ -488,7 +553,11 @@ Active Connections
       const getProcessCommand = (platform as any).getProcessCommand;
 
       setupCommandMocks({
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: '', stderr: 'Error', exitCode: 1 },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: '',
+          stderr: 'Error',
+          exitCode: 1,
+        },
       });
 
       const command = await getProcessCommand(1234);
@@ -500,7 +569,9 @@ Active Connections
       const getProcessCommand = (platform as any).getProcessCommand;
 
       setupCommandMocks({
-        'wmic process where ProcessId=1234 get CommandLine /format:value': { stdout: 'SomeOtherProperty=value\n\n' },
+        'wmic process where ProcessId=1234 get CommandLine /format:value': {
+          stdout: 'SomeOtherProperty=value\n\n',
+        },
       });
 
       const command = await getProcessCommand(1234);
@@ -514,7 +585,9 @@ Active Connections
       const getProcessUser = (platform as any).getProcessUser;
 
       setupCommandMocks({
-        'wmic process where ProcessId=1234 get ExecutablePath /format:value': { stdout: 'ExecutablePath=C:\\path\\to\\exe' },
+        'wmic process where ProcessId=1234 get ExecutablePath /format:value': {
+          stdout: 'ExecutablePath=C:\\path\\to\\exe',
+        },
       });
 
       const user = await getProcessUser(1234);
@@ -526,7 +599,11 @@ Active Connections
       const getProcessUser = (platform as any).getProcessUser;
 
       setupCommandMocks({
-        'wmic process where ProcessId=1234 get ExecutablePath /format:value': { stdout: '', stderr: 'Error', exitCode: 1 },
+        'wmic process where ProcessId=1234 get ExecutablePath /format:value': {
+          stdout: '',
+          stderr: 'Error',
+          exitCode: 1,
+        },
       });
 
       const user = await getProcessUser(1234);
@@ -634,7 +711,11 @@ Active Connections
       jest.advanceTimersByTime(150);
 
       await promise;
-      expect(mockSpawn).toHaveBeenCalledWith('tasklist', ['/FI', 'PID eq 1234', '/FO', 'CSV'], expect.any(Object));
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'tasklist',
+        ['/FI', 'PID eq 1234', '/FO', 'CSV'],
+        expect.any(Object)
+      );
     });
 
     it('should timeout waiting for process to exit', async () => {
@@ -676,13 +757,17 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"node.exe","5678","Console","1","32,768 K"' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=node server.js\n\n' },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"node.exe","5678","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=node server.js\n\n',
+        },
       });
 
       // Override getProcessName for PID 1234 to throw an error
       const originalGetProcessName = platform['getProcessName'];
-      platform['getProcessName'] = async function(pid: number) {
+      platform['getProcessName'] = async function (pid: number) {
         if (pid === 1234) {
           throw new Error('Access denied');
         }
@@ -695,7 +780,7 @@ Active Connections
       expect(processes).toHaveLength(1);
       expect(processes[0].pid).toBe(5678);
       expect(processes[0].name).toBe('node.exe');
-      
+
       // Restore original method
       platform['getProcessName'] = originalGetProcessName;
     });
@@ -711,13 +796,17 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"success.exe","5678","Console","1","32,768 K"' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=success.exe --test\n\n' },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"success.exe","5678","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=success.exe --test\n\n',
+        },
       });
 
       // Override getProcessCommand for PID 1234 to throw an error
       const originalGetProcessCommand = platform['getProcessCommand'];
-      platform['getProcessCommand'] = async function(pid: number) {
+      platform['getProcessCommand'] = async function (pid: number) {
         if (pid === 1234) {
           throw new Error('Process access denied');
         }
@@ -749,13 +838,17 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 5678 /FO CSV /NH': { stdout: '"success.exe","5678","Console","1","32,768 K"' },
-        'wmic process where ProcessId=5678 get CommandLine /format:value': { stdout: 'CommandLine=success.exe --test\n\n' },
+        'tasklist /FI PID eq 5678 /FO CSV /NH': {
+          stdout: '"success.exe","5678","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=5678 get CommandLine /format:value': {
+          stdout: 'CommandLine=success.exe --test\n\n',
+        },
       });
 
       // Override getProcessUser for PID 1234 to throw an error
       const originalGetProcessUser = platform['getProcessUser'];
-      platform['getProcessUser'] = async function(pid: number) {
+      platform['getProcessUser'] = async function (pid: number) {
         if (pid === 1234) {
           throw new Error('Access denied');
         }
@@ -786,22 +879,26 @@ Active Connections
 
       setupCommandMocks({
         'netstat -ano': { stdout: netstatOutput },
-        'tasklist /FI PID eq 9999 /FO CSV /NH': { stdout: '"working.exe","9999","Console","1","32,768 K"' },
-        'wmic process where ProcessId=9999 get CommandLine /format:value': { stdout: 'CommandLine=working.exe --success\n\n' },
+        'tasklist /FI PID eq 9999 /FO CSV /NH': {
+          stdout: '"working.exe","9999","Console","1","32,768 K"',
+        },
+        'wmic process where ProcessId=9999 get CommandLine /format:value': {
+          stdout: 'CommandLine=working.exe --success\n\n',
+        },
       });
 
       // Override methods to throw errors for PIDs 1234 and 5678
       const originalGetProcessName = platform['getProcessName'];
       const originalGetProcessCommand = platform['getProcessCommand'];
-      
-      platform['getProcessName'] = async function(pid: number) {
+
+      platform['getProcessName'] = async function (pid: number) {
         if (pid === 1234) {
           throw new Error('Process access denied');
         }
         return await originalGetProcessName.call(this, pid);
       };
 
-      platform['getProcessCommand'] = async function(pid: number) {
+      platform['getProcessCommand'] = async function (pid: number) {
         if (pid === 5678) {
           throw new Error('Command failed');
         }

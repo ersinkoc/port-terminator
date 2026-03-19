@@ -2,9 +2,12 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { validatePort, validatePID, normalizeProtocol } from '../utils/validators';
 
 export class LinuxPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    port = validatePort(port);
+    protocol = normalizeProtocol(protocol);
     let processes: IProcessInfo[] = [];
 
     try {
@@ -17,6 +20,7 @@ export class LinuxPlatform implements IPlatformImplementation {
   }
 
   async killProcess(pid: number, force = false): Promise<boolean> {
+    validatePID(pid);
     try {
       if (!force) {
         try {
@@ -45,11 +49,14 @@ export class LinuxPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
+    port = validatePort(port);
+    protocol = normalizeProtocol(protocol);
     const processes = await this.findProcessesByPort(port, protocol);
     return processes.length === 0;
   }
 
   async isProcessRunning(pid: number): Promise<boolean> {
+    validatePID(pid);
     try {
       // Use kill -0 to check if process exists without actually killing it
       await executeCommand('kill', ['-0', pid.toString()]);
@@ -66,12 +73,7 @@ export class LinuxPlatform implements IPlatformImplementation {
 
     for (const proto of protocols) {
       try {
-        const lsofResult = await executeCommand('lsof', [
-          '-i',
-          `${proto}:${port}`,
-          '-P',
-          '-n',
-        ]);
+        const lsofResult = await executeCommand('lsof', ['-i', `${proto}:${port}`, '-P', '-n']);
         const lines = lsofResult.stdout.split('\n');
 
         for (const line of lines) {
