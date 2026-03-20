@@ -2,9 +2,14 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { validatePort, validatePID, normalizeProtocol } from '../utils/validators';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    // Defense-in-depth: validate inputs before using them in commands
+    const safePort = validatePort(port);
+    const safeProtocol = normalizeProtocol(protocol);
+
     const processes: IProcessInfo[] = [];
 
     try {
@@ -22,8 +27,8 @@ export class WindowsPlatform implements IPlatformImplementation {
 
         const [proto, localAddress, , state, pidStr] = parts;
 
-        if (protocol !== 'both') {
-          const expectedProto = protocol.toUpperCase();
+        if (safeProtocol !== 'both') {
+          const expectedProto = safeProtocol.toUpperCase();
           if (!proto.startsWith(expectedProto)) {
             continue;
           }
@@ -33,7 +38,7 @@ export class WindowsPlatform implements IPlatformImplementation {
         if (!portMatch) continue;
 
         const localPort = parseInt(portMatch[1], 10);
-        if (localPort !== port) continue;
+        if (localPort !== safePort) continue;
 
         const pid = parseInt(pidStr, 10);
         if (isNaN(pid)) continue;
@@ -71,6 +76,9 @@ export class WindowsPlatform implements IPlatformImplementation {
   }
 
   async killProcess(pid: number, force = false): Promise<boolean> {
+    // Defense-in-depth: validate PID before using it in commands
+    validatePID(pid);
+
     try {
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()];
       await this.execCmd('taskkill', args);
@@ -91,11 +99,15 @@ export class WindowsPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
+    // findProcessesByPort already validates the inputs
     const processes = await this.findProcessesByPort(port, protocol);
     return processes.length === 0;
   }
 
   async isProcessRunning(pid: number): Promise<boolean> {
+    // Defense-in-depth: validate PID before using it in commands
+    validatePID(pid);
+
     try {
       const result = await this.execCmd('tasklist', [
         '/FI',
