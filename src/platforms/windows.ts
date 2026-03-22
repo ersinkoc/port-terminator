@@ -2,9 +2,11 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { normalizeProtocol } from '../utils/validators';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    protocol = normalizeProtocol(protocol);
     const processes: IProcessInfo[] = [];
 
     try {
@@ -91,19 +93,14 @@ export class WindowsPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
+    protocol = normalizeProtocol(protocol);
     const processes = await this.findProcessesByPort(port, protocol);
     return processes.length === 0;
   }
 
   async isProcessRunning(pid: number): Promise<boolean> {
     try {
-      const result = await this.execCmd('tasklist', [
-        '/FI',
-        `PID eq ${pid}`,
-        '/FO',
-        'CSV',
-        '/NH',
-      ]);
+      const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
 
       // tasklist returns "INFO: No tasks..." when PID doesn't exist
       const output = result.stdout.trim();
@@ -120,13 +117,7 @@ export class WindowsPlatform implements IPlatformImplementation {
 
   private async getProcessName(pid: number): Promise<string> {
     try {
-      const result = await this.execCmd('tasklist', [
-        '/FI',
-        `PID eq ${pid}`,
-        '/FO',
-        'CSV',
-        '/NH',
-      ]);
+      const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
       const lines = result.stdout.trim().split('\n');
 
       if (lines.length > 0) {
@@ -203,7 +194,13 @@ export class WindowsPlatform implements IPlatformImplementation {
 
     while (Date.now() - startTime < timeout) {
       try {
-        const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
+        const result = await this.execCmd('tasklist', [
+          '/FI',
+          `PID eq ${pid}`,
+          '/FO',
+          'CSV',
+          '/NH',
+        ]);
         // tasklist returns "INFO: No tasks..." when PID doesn't exist
         if (result.stdout.includes('INFO:') || !result.stdout.includes(pid.toString())) {
           return;
@@ -239,5 +236,4 @@ export class WindowsPlatform implements IPlatformImplementation {
 
     return result.map((item) => item.replace(/^"(.*)"$/, '$1'));
   }
-
 }

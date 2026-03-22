@@ -2,21 +2,18 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { normalizeProtocol } from '../utils/validators';
 
 export class MacOSPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    protocol = normalizeProtocol(protocol);
     const processes: IProcessInfo[] = [];
 
     try {
       const protocols = protocol === 'both' ? ['tcp', 'udp'] : [protocol];
 
       for (const proto of protocols) {
-        const lsofResult = await executeCommand('lsof', [
-          '-i',
-          `${proto}:${port}`,
-          '-P',
-          '-n',
-        ]);
+        const lsofResult = await executeCommand('lsof', ['-i', `${proto}:${port}`, '-P', '-n']);
         const lines = lsofResult.stdout.split('\n');
 
         for (const line of lines) {
@@ -88,6 +85,7 @@ export class MacOSPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
+    protocol = normalizeProtocol(protocol);
     const processes = await this.findProcessesByPort(port, protocol);
     return processes.length === 0;
   }
@@ -113,11 +111,7 @@ export class MacOSPlatform implements IPlatformImplementation {
     // Check all protocols before throwing error
     for (const proto of protocols) {
       try {
-        const netstatResult = await executeCommand('netstat', [
-          '-an',
-          '-p',
-          proto,
-        ]);
+        const netstatResult = await executeCommand('netstat', ['-an', '-p', proto]);
         const lines = netstatResult.stdout.split('\n');
 
         for (const line of lines) {

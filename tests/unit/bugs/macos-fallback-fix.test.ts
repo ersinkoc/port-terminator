@@ -38,8 +38,14 @@ describe('Bug #1 Fix: macOS Fallback Protocol Handling', () => {
         else if (callCount === 2 && command === 'netstat' && args.includes('tcp')) {
           // Return TCP result showing port 3000 is in use
           mockChild.stdout.emit('data', 'Active Internet connections\n');
-          mockChild.stdout.emit('data', 'Proto Recv-Q Send-Q Local Address Foreign Address State\n');
-          mockChild.stdout.emit('data', 'tcp4       0      0  127.0.0.1.3000     *.*                    LISTEN\n');
+          mockChild.stdout.emit(
+            'data',
+            'Proto Recv-Q Send-Q Local Address Foreign Address State\n'
+          );
+          mockChild.stdout.emit(
+            'data',
+            'tcp4       0      0  127.0.0.1.3000     *.*                    LISTEN\n'
+          );
           mockChild.emit('close', 0);
         }
         // Third call: netstat for UDP (should happen after the fix)
@@ -48,8 +54,7 @@ describe('Bug #1 Fix: macOS Fallback Protocol Handling', () => {
           mockChild.stdout.emit('data', 'Active Internet connections\n');
           mockChild.stdout.emit('data', 'Proto Recv-Q Send-Q Local Address Foreign Address\n');
           mockChild.emit('close', 0);
-        }
-        else {
+        } else {
           mockChild.emit('close', 0);
         }
       });
@@ -91,7 +96,10 @@ describe('Bug #1 Fix: macOS Fallback Protocol Handling', () => {
           mockChild.stderr.emit('data', 'lsof: No such file or directory\n');
           mockChild.emit('close', 1);
         } else if (callCount === 2 && command === 'netstat' && args.includes('tcp')) {
-          mockChild.stdout.emit('data', 'tcp4       0      0  127.0.0.1.3000     *.*                    LISTEN\n');
+          mockChild.stdout.emit(
+            'data',
+            'tcp4       0      0  127.0.0.1.3000     *.*                    LISTEN\n'
+          );
           mockChild.emit('close', 0);
         } else {
           mockChild.emit('close', 0);
