@@ -4,6 +4,7 @@ import { WindowsPlatform } from '../platforms/windows';
 import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
+import { normalizeProtocol } from '../utils/validators';
 
 export class ProcessFinder {
   private platform: IPlatformImplementation;
@@ -27,16 +28,18 @@ export class ProcessFinder {
   }
 
   async findByPort(port: number, protocol?: string): Promise<IProcessInfo[]> {
-    return this.platform.findProcessesByPort(port, protocol);
+    const safeProtocol = normalizeProtocol(protocol);
+    return this.platform.findProcessesByPort(port, safeProtocol);
   }
 
   async findByPorts(ports: number[], protocol?: string): Promise<Map<number, IProcessInfo[]>> {
     const results = new Map<number, IProcessInfo[]>();
+    const safeProtocol = normalizeProtocol(protocol);
 
     await Promise.all(
       ports.map(async (port) => {
         try {
-          const processes = await this.findByPort(port, protocol);
+          const processes = await this.findByPort(port, safeProtocol);
           results.set(port, processes);
         } catch (error) {
           // Silently handle errors - continue with other ports
