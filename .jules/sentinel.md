@@ -1,0 +1,4 @@
+## 2026-03-07 - [Defense In Depth] Lack of Input Validation in Exported Core Classes
+**Vulnerability:** The exported core classes `ProcessFinder` and `ProcessKiller` did not perform runtime input validation for critical parameters like `port` (which can be vulnerable if not strictly numeric) and `protocol` (which is passed to shell commands like `lsof -i ${proto}:${port}`).
+**Learning:** Even though the main API entrypoint (`PortTerminator`) validated its inputs, exporting internal core classes without replicating those validation checks creates a bypass vulnerability where developers directly consuming those core classes might introduce injection risks.
+**Prevention:** Enforce defense-in-depth by normalizing and validating external inputs (like ports and protocol strings) at the lowest possible architectural layer before they interact with platform-specific execution contexts.

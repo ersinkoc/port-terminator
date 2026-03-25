@@ -4,6 +4,7 @@ import { WindowsPlatform } from '../platforms/windows';
 import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
+import { validatePort, validatePorts, normalizeProtocol } from '../utils/validators';
 
 export class ProcessFinder {
   private platform: IPlatformImplementation;
@@ -27,16 +28,20 @@ export class ProcessFinder {
   }
 
   async findByPort(port: number, protocol?: string): Promise<IProcessInfo[]> {
-    return this.platform.findProcessesByPort(port, protocol);
+    const validPort = validatePort(port);
+    const validProto = normalizeProtocol(protocol);
+    return this.platform.findProcessesByPort(validPort, validProto);
   }
 
   async findByPorts(ports: number[], protocol?: string): Promise<Map<number, IProcessInfo[]>> {
+    const validPorts = validatePorts(ports);
+    const validProto = normalizeProtocol(protocol);
     const results = new Map<number, IProcessInfo[]>();
 
     await Promise.all(
-      ports.map(async (port) => {
+      validPorts.map(async (port) => {
         try {
-          const processes = await this.findByPort(port, protocol);
+          const processes = await this.findByPort(port, validProto);
           results.set(port, processes);
         } catch (error) {
           // Silently handle errors - continue with other ports
@@ -49,7 +54,9 @@ export class ProcessFinder {
   }
 
   async isPortAvailable(port: number, protocol?: string): Promise<boolean> {
-    return this.platform.isPortAvailable(port, protocol);
+    const validPort = validatePort(port);
+    const validProto = normalizeProtocol(protocol);
+    return this.platform.isPortAvailable(validPort, validProto);
   }
 
   async waitForPortToBeAvailable(
@@ -57,11 +64,13 @@ export class ProcessFinder {
     timeout = 30000,
     protocol?: string
   ): Promise<boolean> {
+    const validPort = validatePort(port);
+    const validProto = normalizeProtocol(protocol);
     const checkInterval = 250;
     const startTime = Date.now();
 
     // Perform an initial check immediately
-    let isAvailable = await this.isPortAvailable(port, protocol);
+    let isAvailable = await this.isPortAvailable(validPort, validProto);
     if (isAvailable) {
       return true;
     }
@@ -74,7 +83,7 @@ export class ProcessFinder {
     // Use time-based loop instead of iteration count
     while (Date.now() - startTime < timeout) {
       await new Promise((resolve) => setTimeout(resolve, checkInterval));
-      isAvailable = await this.isPortAvailable(port, protocol);
+      isAvailable = await this.isPortAvailable(validPort, validProto);
       if (isAvailable) {
         return true;
       }
@@ -84,11 +93,13 @@ export class ProcessFinder {
   }
 
   async waitForPortToBeBusy(port: number, timeout = 30000, protocol?: string): Promise<boolean> {
+    const validPort = validatePort(port);
+    const validProto = normalizeProtocol(protocol);
     const checkInterval = 250;
     const startTime = Date.now();
 
     // Perform an initial check immediately
-    let isAvailable = await this.isPortAvailable(port, protocol);
+    let isAvailable = await this.isPortAvailable(validPort, validProto);
     if (!isAvailable) {
       return true;
     }
@@ -101,7 +112,7 @@ export class ProcessFinder {
     // Use time-based loop instead of iteration count
     while (Date.now() - startTime < timeout) {
       await new Promise((resolve) => setTimeout(resolve, checkInterval));
-      isAvailable = await this.isPortAvailable(port, protocol);
+      isAvailable = await this.isPortAvailable(validPort, validProto);
       if (!isAvailable) {
         return true;
       }
