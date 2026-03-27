@@ -1,0 +1,4 @@
+## 2026-03-27 - [HIGH-003] No Runtime Validation of protocol/method Parameter
+**Vulnerability:** Arbitrary strings passed to `protocol` or `method` arguments in `PortTerminator` APIs or internal classes like `ProcessFinder` and `ProcessKiller` were passed unsanitized down to platform-specific shells commands (like `lsof -i ${proto}:${port}` or `netstat --${protocol}`). This allowed potential shell injection or command injection.
+**Learning:** Even though public APIs may have typing or superficial validation, deep nested utility methods connecting directly to OS processes (`child_process.spawn`) must strongly enforce validation/normalization on any parameter acting as a command string component.
+**Prevention:** Use defense-in-depth by validating inputs at the lowest appropriate layer (e.g. at the start of platform-specific methods `findProcessesByPort` and `isPortAvailable`, or wrapper methods `findByPort`, `killProcessesByPort`).
