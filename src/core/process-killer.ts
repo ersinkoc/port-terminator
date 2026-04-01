@@ -4,7 +4,7 @@ import { WindowsPlatform } from '../platforms/windows';
 import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
-import { validatePID } from '../utils/validators';
+import { validatePID, normalizeProtocol } from '../utils/validators';
 
 export class ProcessKiller {
   private platform: IPlatformImplementation;
@@ -75,7 +75,7 @@ export class ProcessKiller {
     gracefulTimeout = 5000,
     protocol?: string
   ): Promise<IProcessInfo[]> {
-    const processes = await this.platform.findProcessesByPort(port, protocol);
+    const processes = await this.platform.findProcessesByPort(port, normalizeProtocol(protocol));
 
     if (processes.length === 0) {
       return [];
