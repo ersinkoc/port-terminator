@@ -1,0 +1,5 @@
+## 2025-04-02 - Uncontrolled Resource Consumption (DoS) in Child Process Streams
+
+**Vulnerability:** The `executeCommand` utility spawned child processes but concatenated their `stdout` and `stderr` output streams into memory without any size bounds. This uncontrolled concatenation allowed a malicious or runaway child process to emit excessive amounts of data, crashing the host Node.js process with a heap out-of-memory error (Denial of Service).
+**Learning:** `child_process.spawn` does not natively limit the size of data buffered from standard streams like `child_process.exec` does (which has a `maxBuffer` limit). When reading directly from data events on pipes, application logic must enforce boundaries explicitly.
+**Prevention:** Implement a `maxBuffer` parameter (default 1MB) inside stream event handlers. Whenever `Buffer.byteLength()` of the accumulated strings exceeds this threshold, forcefully terminate the child process using `SIGKILL` and reject the operation with a buffer limit violation error.
