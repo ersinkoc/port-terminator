@@ -1,0 +1,4 @@
+## 2023-10-27 - [Uncontrolled Resource Consumption] Prevent DoS by enforcing maxBuffer on child process streams
+**Vulnerability:** Uncontrolled resource consumption (CWE-400) vulnerability due to unbounded buffering of stdout and stderr streams when using `child_process.spawn`.
+**Learning:** Unlike `child_process.exec`, `child_process.spawn` does not have an implicit `maxBuffer`. Any data emitted on standard streams must be explicitly capped. If not, a malicious or malfunctioning child process could continuously output data, exhausting memory and causing a Denial of Service (DoS) condition on the Node.js process.
+**Prevention:** Always enforce explicit buffer limits when accumulating data from stream 'data' events. Terminate the child process (e.g., using SIGKILL) immediately if the buffer exceeds safe thresholds.
