@@ -61,7 +61,7 @@ export class InvalidPortError extends PortTerminatorError {
       portValue = port;
     } else {
       const parsed = parseInt(port, 10);
-      portValue = (!isNaN(parsed) && isFinite(parsed)) ? port : undefined;
+      portValue = !isNaN(parsed) && isFinite(parsed) ? port : undefined;
     }
 
     super(
