@@ -276,7 +276,10 @@ if (require.main === module) {
   // Handle unhandled promise rejections
   process.on('unhandledRejection', (reason: unknown) => {
     const logger = new Logger();
-    logger.error('Unhandled promise rejection:', reason instanceof Error ? reason.message : String(reason));
+    logger.error(
+      'Unhandled promise rejection:',
+      reason instanceof Error ? reason.message : String(reason)
+    );
     process.exit(1);
   });
 

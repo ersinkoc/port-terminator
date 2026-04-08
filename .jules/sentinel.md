@@ -1,0 +1,4 @@
+## 2026-03-06 - Uncontrolled Resource Consumption (DoS) via `child_process.spawn`
+**Vulnerability:** The `executeCommand` utility uses `child_process.spawn` which pipes `stdout` and `stderr` streams. Without bounds checking, reading continuously into memory via `data.toString()` could lead to Uncontrolled Resource Consumption and out-of-memory Denial of Service (DoS) if a malicious or broken process outputs excessive amounts of data.
+**Learning:** Unlike `child_process.exec`, which imposes a default buffer limit and throws an error if exceeded, `child_process.spawn`'s raw event streams provide no automatic protection. Explicit length tracking and forced termination are necessary.
+**Prevention:** Always implement a `maxBuffer` parameter (e.g., 1MB) for process stream handlers. Reject operations and immediately send `SIGKILL` to the child process when the size threshold is exceeded.
