@@ -15,15 +15,16 @@ import { CommandExecutionError } from '../errors';
  * @param options - Optional configuration
  * @param options.timeoutMs - Command timeout in milliseconds (default: 30000)
  * @param options.windowsHide - Hide the subprocess window on Windows (default: false)
+ * @param options.maxBuffer - Maximum allowed size for stdout/stderr in bytes to prevent DoS (default: 1MB)
  * @returns Promise resolving to command result with stdout, stderr, and exitCode
  * @throws {CommandExecutionError} If the command fails or times out
  */
 export function executeCommand(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; windowsHide?: boolean } = {}
+  options: { timeoutMs?: number; windowsHide?: boolean; maxBuffer?: number } = {}
 ): Promise<ICommandResult> {
-  const { timeoutMs = 30000, windowsHide = false } = options;
+  const { timeoutMs = 30000, windowsHide = false, maxBuffer = 1048576 } = options; // 1MB default
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -52,11 +53,36 @@ export function executeCommand(
       }
     }, timeoutMs);
 
+    let stdoutSize = 0;
+    let stderrSize = 0;
+
     child.stdout?.on('data', (data: Buffer) => {
+      if (isResolved) return;
+      stdoutSize += data.length;
+      if (stdoutSize > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGKILL');
+          clearTimeout(timeout);
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, `stdout exceeded maxBuffer (${maxBuffer} bytes)`));
+        }
+        return;
+      }
       stdout += data.toString();
     });
 
     child.stderr?.on('data', (data: Buffer) => {
+      if (isResolved) return;
+      stderrSize += data.length;
+      if (stderrSize > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGKILL');
+          clearTimeout(timeout);
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, `stderr exceeded maxBuffer (${maxBuffer} bytes)`));
+        }
+        return;
+      }
       stderr += data.toString();
     });
 
