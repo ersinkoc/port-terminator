@@ -1,7 +1,12 @@
 import type { IPortTerminatorOptions, IProcessInfo, ITerminationResult } from './types';
 import { ProcessFinder } from './core/process-finder';
 import { ProcessKiller } from './core/process-killer';
-import { validatePort, validatePorts, validateTimeout, normalizeProtocol } from './utils/validators';
+import {
+  validatePort,
+  validatePorts,
+  validateTimeout,
+  normalizeProtocol,
+} from './utils/validators';
 import { TimeoutError } from './errors';
 import { Logger } from './utils/logger';
 
