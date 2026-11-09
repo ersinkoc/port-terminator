@@ -1,0 +1,4 @@
+## 2025-03-14 - [Defense in Depth] Protocol parameter validation in system calls
+**Vulnerability:** Arbitrary string inputs passed as protocol arguments to `lsof` and `netstat` shell commands (e.g. `lsof -i ${proto}:${port}`) in platform implementations (`findProcessesByPort`, `isPortAvailable`).
+**Learning:** Even if the top-level API (`PortTerminator`) validates parameters, low-level platform classes may be instantiated directly. Trusting input at lower layers because it was "supposed" to be validated higher up violates defense in depth.
+**Prevention:** Always validate and normalize external inputs (like protocol strings) at the lowest layer, immediately before they are interpolated into shell commands. We applied `normalizeProtocol` (which restricts values to 'tcp', 'udp', or 'both') across all platform classes.

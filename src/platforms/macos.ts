@@ -2,13 +2,15 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { normalizeProtocol } from '../utils/validators';
 
 export class MacOSPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    const validProtocol = normalizeProtocol(protocol);
     const processes: IProcessInfo[] = [];
 
     try {
-      const protocols = protocol === 'both' ? ['tcp', 'udp'] : [protocol];
+      const protocols = validProtocol === 'both' ? ['tcp', 'udp'] : [validProtocol];
 
       for (const proto of protocols) {
         const lsofResult = await executeCommand('lsof', [
@@ -53,7 +55,7 @@ export class MacOSPlatform implements IPlatformImplementation {
         error instanceof CommandExecutionError &&
         error.stderr.includes('No such file or directory')
       ) {
-        return this.fallbackFindProcesses(port, protocol);
+        return this.fallbackFindProcesses(port, validProtocol);
       }
       throw error;
     }
@@ -88,7 +90,8 @@ export class MacOSPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
-    const processes = await this.findProcessesByPort(port, protocol);
+    const validProtocol = normalizeProtocol(protocol);
+    const processes = await this.findProcessesByPort(port, validProtocol);
     return processes.length === 0;
   }
 
