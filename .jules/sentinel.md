@@ -1,0 +1,4 @@
+## 2026-04-09 - Uncontrolled Resource Consumption in `executeCommand`
+**Vulnerability:** The shared `executeCommand` utility uses `child_process.spawn` to execute shell commands but did not implement limits on the length of data buffered from `stdout` and `stderr`. Since `spawn` does not have a native `maxBuffer` property like `exec` does, long-running or malicious processes could generate an unlimited amount of output, leading to memory exhaustion and Denial of Service (DoS) attacks.
+**Learning:** It is crucial to manually manage buffer sizes when consuming streams from `child_process.spawn`. Standard testing might not catch memory exhaustion without specific tests generating massive streams.
+**Prevention:** Implement an explicit `maxBuffer` limit (e.g., 1MB) within the `data` event listeners of standard streams. Track lengths iteratively and proactively `kill('SIGKILL')` the child process and throw an error when the limit is breached.
