@@ -1,0 +1,4 @@
+## 2026-03-06 - [CRITICAL] Uncontrolled Resource Consumption DoS in executeCommand
+**Vulnerability:** The `executeCommand` utility uses `child_process.spawn` and appends stream data (stdout/stderr) directly to variables (`stdout += data.toString()`) without any bounds checking or limits. If a malicious or runaway process outputs an excessive amount of data, this causes unbounded memory usage, eventually leading to a Node.js out-of-memory crash (Denial of Service).
+**Learning:** Unlike `child_process.exec` which has a native `maxBuffer` option that defaults to 1MB, `child_process.spawn` relies on standard event streams (`data`) and does not natively limit the accumulated buffer size when manually aggregating strings.
+**Prevention:** Always implement an explicit `maxBuffer` limit when concatenating stream chunks from `spawn` events, and terminate the process with `SIGKILL` (and reject the promise) if the accumulated size exceeds the threshold (e.g., 1MB).

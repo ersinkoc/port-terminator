@@ -21,9 +21,9 @@ import { CommandExecutionError } from '../errors';
 export function executeCommand(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; windowsHide?: boolean } = {}
+  options: { timeoutMs?: number; windowsHide?: boolean; maxBuffer?: number } = {}
 ): Promise<ICommandResult> {
-  const { timeoutMs = 30000, windowsHide = false } = options;
+  const { timeoutMs = 30000, windowsHide = false, maxBuffer = 1048576 } = options;
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -52,12 +52,43 @@ export function executeCommand(
       }
     }, timeoutMs);
 
+    const checkBufferLimit = (bufferData: string, type: 'stdout' | 'stderr') => {
+      if (Buffer.byteLength(bufferData, 'utf8') > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          if (killTimeout) {
+            clearTimeout(killTimeout);
+            killTimeout = null;
+          }
+          // Prevent further data accumulation immediately
+          child.stdout?.removeAllListeners('data');
+          child.stderr?.removeAllListeners('data');
+
+          child.kill('SIGKILL');
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `Command exceeded maximum buffer size of ${maxBuffer} bytes on ${type}`
+            )
+          );
+        }
+        return true;
+      }
+      return false;
+    };
+
     child.stdout?.on('data', (data: Buffer) => {
+      if (isResolved) return;
       stdout += data.toString();
+      checkBufferLimit(stdout, 'stdout');
     });
 
     child.stderr?.on('data', (data: Buffer) => {
+      if (isResolved) return;
       stderr += data.toString();
+      checkBufferLimit(stderr, 'stderr');
     });
 
     child.on('close', (code: number | null) => {
