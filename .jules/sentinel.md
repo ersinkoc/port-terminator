@@ -1,0 +1,4 @@
+## 2026-03-06 - [Defense-in-Depth] Validation missing at the lowest architectural layer
+**Vulnerability:** The platform specific implementations (`linux.ts`, `macos.ts`, `windows.ts`) assumed validation was occurring at a higher level and directly used inputs like `protocol` to construct shell arguments. This is risky because changes in the high-level API or internal usage could bypass validations.
+**Learning:** Defense-in-depth requires validation at every layer, especially at the architectural boundary where code interacts with the shell/system. Always sanitize and validate parameters before interpolating them into commands or arguments.
+**Prevention:** Integrate `validatePort`, `normalizeProtocol`, and `validatePID` at the start of any platform implementation methods interacting with external processes (like `findProcessesByPort`, `killProcess`, etc).

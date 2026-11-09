@@ -38,7 +38,10 @@ describe('Bug #3: macOS Fallback Protocol Handling', () => {
           else if (callCount === 2 && args.includes('tcp')) {
             // Empty result for TCP
             mockChild.stdout.emit('data', 'Active Internet connections\n');
-            mockChild.stdout.emit('data', 'Proto Recv-Q Send-Q Local Address Foreign Address State\n');
+            mockChild.stdout.emit(
+              'data',
+              'Proto Recv-Q Send-Q Local Address Foreign Address State\n'
+            );
             mockChild.emit('close', 0);
           }
           // Third call should be netstat for UDP (if bug is fixed)
@@ -73,14 +76,14 @@ describe('Bug #3: macOS Fallback Protocol Handling', () => {
 
       // Verify netstat was called with tcp
       const tcpCall = mockSpawn.mock.calls.find(
-        call => call[0] === 'netstat' && call[1].includes('tcp')
+        (call) => call[0] === 'netstat' && call[1].includes('tcp')
       );
       expect(tcpCall).toBeDefined();
 
       // BUG: This will fail because UDP netstat is never called
       // After fix, this should pass
       const udpCall = mockSpawn.mock.calls.find(
-        call => call[0] === 'netstat' && call[1].includes('udp')
+        (call) => call[0] === 'netstat' && call[1].includes('udp')
       );
       expect(udpCall).toBeDefined(); // This will FAIL with the bug
     });
@@ -117,9 +120,7 @@ describe('Bug #3: macOS Fallback Protocol Handling', () => {
       }
 
       // Should only call netstat once for TCP
-      const netstatCalls = mockSpawn.mock.calls.filter(
-        call => call[0] === 'netstat'
-      );
+      const netstatCalls = mockSpawn.mock.calls.filter((call) => call[0] === 'netstat');
       expect(netstatCalls.length).toBe(1);
       expect(netstatCalls[0][1]).toContain('tcp');
     });
@@ -156,9 +157,7 @@ describe('Bug #3: macOS Fallback Protocol Handling', () => {
       }
 
       // Should only call netstat once for UDP
-      const netstatCalls = mockSpawn.mock.calls.filter(
-        call => call[0] === 'netstat'
-      );
+      const netstatCalls = mockSpawn.mock.calls.filter((call) => call[0] === 'netstat');
       expect(netstatCalls.length).toBe(1);
       expect(netstatCalls[0][1]).toContain('udp');
     });

@@ -2,18 +2,21 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { validatePort, normalizeProtocol, validatePID } from '../utils/validators';
 
 export class MacOSPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    const validPort = validatePort(port);
+    const validProtocol = normalizeProtocol(protocol);
     const processes: IProcessInfo[] = [];
 
     try {
-      const protocols = protocol === 'both' ? ['tcp', 'udp'] : [protocol];
+      const protocols = validProtocol === 'both' ? ['tcp', 'udp'] : [validProtocol];
 
       for (const proto of protocols) {
         const lsofResult = await executeCommand('lsof', [
           '-i',
-          `${proto}:${port}`,
+          `${proto}:${validPort}`,
           '-P',
           '-n',
         ]);
@@ -32,14 +35,14 @@ export class MacOSPlatform implements IPlatformImplementation {
 
           if (isNaN(pid)) continue;
 
-          if (!name.includes(`:${port}`)) continue;
+          if (!name.includes(`:${validPort}`)) continue;
 
           const processCommand = await this.getProcessCommand(pid);
 
           processes.push({
             pid,
             name: command,
-            port,
+            port: validPort,
             protocol: proto,
             command: processCommand,
             user,
@@ -53,13 +56,14 @@ export class MacOSPlatform implements IPlatformImplementation {
         error instanceof CommandExecutionError &&
         error.stderr.includes('No such file or directory')
       ) {
-        return this.fallbackFindProcesses(port, protocol);
+        return this.fallbackFindProcesses(validPort, validProtocol);
       }
       throw error;
     }
   }
 
   async killProcess(pid: number, force = false): Promise<boolean> {
+    validatePID(pid);
     try {
       if (!force) {
         try {
@@ -88,11 +92,14 @@ export class MacOSPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
-    const processes = await this.findProcessesByPort(port, protocol);
+    const validPort = validatePort(port);
+    const validProtocol = normalizeProtocol(protocol);
+    const processes = await this.findProcessesByPort(validPort, validProtocol);
     return processes.length === 0;
   }
 
   async isProcessRunning(pid: number): Promise<boolean> {
+    validatePID(pid);
     try {
       // Use kill -0 to check if process exists without actually killing it
       await executeCommand('kill', ['-0', pid.toString()]);
@@ -113,11 +120,7 @@ export class MacOSPlatform implements IPlatformImplementation {
     // Check all protocols before throwing error
     for (const proto of protocols) {
       try {
-        const netstatResult = await executeCommand('netstat', [
-          '-an',
-          '-p',
-          proto,
-        ]);
+        const netstatResult = await executeCommand('netstat', ['-an', '-p', proto]);
         const lines = netstatResult.stdout.split('\n');
 
         for (const line of lines) {

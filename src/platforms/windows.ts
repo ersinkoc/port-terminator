@@ -2,9 +2,12 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { validatePort, normalizeProtocol, validatePID } from '../utils/validators';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    const validPort = validatePort(port);
+    const validProtocol = normalizeProtocol(protocol);
     const processes: IProcessInfo[] = [];
 
     try {
@@ -22,8 +25,8 @@ export class WindowsPlatform implements IPlatformImplementation {
 
         const [proto, localAddress, , state, pidStr] = parts;
 
-        if (protocol !== 'both') {
-          const expectedProto = protocol.toUpperCase();
+        if (validProtocol !== 'both') {
+          const expectedProto = validProtocol.toUpperCase();
           if (!proto.startsWith(expectedProto)) {
             continue;
           }
@@ -33,7 +36,7 @@ export class WindowsPlatform implements IPlatformImplementation {
         if (!portMatch) continue;
 
         const localPort = parseInt(portMatch[1], 10);
-        if (localPort !== port) continue;
+        if (localPort !== validPort) continue;
 
         const pid = parseInt(pidStr, 10);
         if (isNaN(pid)) continue;
@@ -71,6 +74,7 @@ export class WindowsPlatform implements IPlatformImplementation {
   }
 
   async killProcess(pid: number, force = false): Promise<boolean> {
+    validatePID(pid);
     try {
       const args = force ? ['/F', '/PID', pid.toString()] : ['/PID', pid.toString()];
       await this.execCmd('taskkill', args);
@@ -91,19 +95,16 @@ export class WindowsPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
-    const processes = await this.findProcessesByPort(port, protocol);
+    const validPort = validatePort(port);
+    const validProtocol = normalizeProtocol(protocol);
+    const processes = await this.findProcessesByPort(validPort, validProtocol);
     return processes.length === 0;
   }
 
   async isProcessRunning(pid: number): Promise<boolean> {
+    validatePID(pid);
     try {
-      const result = await this.execCmd('tasklist', [
-        '/FI',
-        `PID eq ${pid}`,
-        '/FO',
-        'CSV',
-        '/NH',
-      ]);
+      const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
 
       // tasklist returns "INFO: No tasks..." when PID doesn't exist
       const output = result.stdout.trim();
@@ -120,13 +121,7 @@ export class WindowsPlatform implements IPlatformImplementation {
 
   private async getProcessName(pid: number): Promise<string> {
     try {
-      const result = await this.execCmd('tasklist', [
-        '/FI',
-        `PID eq ${pid}`,
-        '/FO',
-        'CSV',
-        '/NH',
-      ]);
+      const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
       const lines = result.stdout.trim().split('\n');
 
       if (lines.length > 0) {
@@ -203,7 +198,13 @@ export class WindowsPlatform implements IPlatformImplementation {
 
     while (Date.now() - startTime < timeout) {
       try {
-        const result = await this.execCmd('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
+        const result = await this.execCmd('tasklist', [
+          '/FI',
+          `PID eq ${pid}`,
+          '/FO',
+          'CSV',
+          '/NH',
+        ]);
         // tasklist returns "INFO: No tasks..." when PID doesn't exist
         if (result.stdout.includes('INFO:') || !result.stdout.includes(pid.toString())) {
           return;
@@ -239,5 +240,4 @@ export class WindowsPlatform implements IPlatformImplementation {
 
     return result.map((item) => item.replace(/^"(.*)"$/, '$1'));
   }
-
 }
