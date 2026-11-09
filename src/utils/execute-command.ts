@@ -15,15 +15,16 @@ import { CommandExecutionError } from '../errors';
  * @param options - Optional configuration
  * @param options.timeoutMs - Command timeout in milliseconds (default: 30000)
  * @param options.windowsHide - Hide the subprocess window on Windows (default: false)
+ * @param options.maxBuffer - Maximum amount of stdout/stderr data allowed in bytes (default: 1048576)
  * @returns Promise resolving to command result with stdout, stderr, and exitCode
  * @throws {CommandExecutionError} If the command fails or times out
  */
 export function executeCommand(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; windowsHide?: boolean } = {}
+  options: { timeoutMs?: number; windowsHide?: boolean; maxBuffer?: number } = {}
 ): Promise<ICommandResult> {
-  const { timeoutMs = 30000, windowsHide = false } = options;
+  const { timeoutMs = 30000, windowsHide = false, maxBuffer = 1024 * 1024 } = options;
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -53,10 +54,26 @@ export function executeCommand(
     }, timeoutMs);
 
     child.stdout?.on('data', (data: Buffer) => {
+      if (stdout.length + data.length > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGKILL');
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, `stdout maxBuffer exceeded (${maxBuffer} bytes)`));
+        }
+        return;
+      }
       stdout += data.toString();
     });
 
     child.stderr?.on('data', (data: Buffer) => {
+      if (stderr.length + data.length > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGKILL');
+          reject(new CommandExecutionError(`${command} ${args.join(' ')}`, 1, `stderr maxBuffer exceeded (${maxBuffer} bytes)`));
+        }
+        return;
+      }
       stderr += data.toString();
     });
 
