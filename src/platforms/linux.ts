@@ -2,21 +2,25 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { validatePort, validatePID, normalizeProtocol } from '../utils/validators';
 
 export class LinuxPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
+    const validatedPort = validatePort(port);
+    const normalizedProtocol = normalizeProtocol(protocol);
     let processes: IProcessInfo[] = [];
 
     try {
-      processes = await this.findWithLsof(port, protocol);
+      processes = await this.findWithLsof(validatedPort, normalizedProtocol);
     } catch (error) {
-      processes = await this.findWithNetstat(port, protocol);
+      processes = await this.findWithNetstat(validatedPort, normalizedProtocol);
     }
 
     return deduplicateProcesses(processes);
   }
 
   async killProcess(pid: number, force = false): Promise<boolean> {
+    validatePID(pid);
     try {
       if (!force) {
         try {
@@ -45,11 +49,14 @@ export class LinuxPlatform implements IPlatformImplementation {
   }
 
   async isPortAvailable(port: number, protocol = 'both'): Promise<boolean> {
-    const processes = await this.findProcessesByPort(port, protocol);
+    const validatedPort = validatePort(port);
+    const normalizedProtocol = normalizeProtocol(protocol);
+    const processes = await this.findProcessesByPort(validatedPort, normalizedProtocol);
     return processes.length === 0;
   }
 
   async isProcessRunning(pid: number): Promise<boolean> {
+    validatePID(pid);
     try {
       // Use kill -0 to check if process exists without actually killing it
       await executeCommand('kill', ['-0', pid.toString()]);
