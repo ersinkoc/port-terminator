@@ -32,14 +32,24 @@ describe('Error Classes', () => {
     });
 
     it('should create error with pid information', () => {
-      const error = new PortTerminatorError('Test message', ErrorCode.PROCESS_KILL_FAILED, undefined, 1234);
+      const error = new PortTerminatorError(
+        'Test message',
+        ErrorCode.PROCESS_KILL_FAILED,
+        undefined,
+        1234
+      );
 
       expect(error.port).toBeUndefined();
       expect(error.pid).toBe(1234);
     });
 
     it('should create error with both port and pid', () => {
-      const error = new PortTerminatorError('Test message', ErrorCode.PROCESS_NOT_FOUND, 3000, 1234);
+      const error = new PortTerminatorError(
+        'Test message',
+        ErrorCode.PROCESS_NOT_FOUND,
+        3000,
+        1234
+      );
 
       expect(error.port).toBe(3000);
       expect(error.pid).toBe(1234);
