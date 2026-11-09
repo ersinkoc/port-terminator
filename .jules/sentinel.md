@@ -1,0 +1,4 @@
+## 2025-05-20 - [Input Validation] Missing runtime protocol validation
+**Vulnerability:** The `method/protocol` parameter was only validated at compile-time by TypeScript (`'tcp' | 'udp' | 'both'`). At runtime, arbitrary strings could be passed directly to the platform layer (e.g., `lsof` or `netstat` commands).
+**Learning:** TypeScript type-checking is not a substitute for runtime validation when inputs eventually flow into operating system commands. Even when using safe execution methods like `spawn` with argument arrays, missing runtime validation can lead to unexpected command behavior or injection.
+**Prevention:** Always enforce runtime validation/normalization of inputs (like protocols) at the lowest architectural boundary before interacting with system utilities, using utilities like `normalizeProtocol`.
