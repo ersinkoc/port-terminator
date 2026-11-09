@@ -41,7 +41,7 @@ describe('PortScanner', () => {
         available: true,
         processes: [],
       });
-      expect(mockProcessFinderInstance.findByPort).toHaveBeenCalledWith(3000, undefined);
+      expect(mockProcessFinderInstance.findByPort).toHaveBeenCalledWith(3000, 'both');
     });
 
     it('should scan a port and return busy status', async () => {

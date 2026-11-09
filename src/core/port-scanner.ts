@@ -1,5 +1,6 @@
 import { ProcessFinder } from './process-finder';
 import type { IProcessInfo } from '../types';
+import { normalizeProtocol } from '../utils/validators';
 
 export class PortScanner {
   private processFinder: ProcessFinder;
@@ -16,7 +17,8 @@ export class PortScanner {
     available: boolean;
     processes: IProcessInfo[];
   }> {
-    const processes = await this.processFinder.findByPort(port, protocol);
+    const safeProtocol = normalizeProtocol(protocol);
+    const processes = await this.processFinder.findByPort(port, safeProtocol);
 
     return {
       port,
@@ -39,10 +41,11 @@ export class PortScanner {
     >
   > {
     const results = new Map();
+    const safeProtocol = normalizeProtocol(protocol);
 
     await Promise.all(
       ports.map(async (port) => {
-        const result = await this.scanPort(port, protocol);
+        const result = await this.scanPort(port, safeProtocol);
         results.set(port, result);
       })
     );

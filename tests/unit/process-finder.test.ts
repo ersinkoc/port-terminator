@@ -91,7 +91,7 @@ describe('ProcessFinder', () => {
       const result = await processFinder.findByPort(3000);
 
       expect(result).toEqual(mockProcesses);
-      expect(mockPlatformInstance.findProcessesByPort).toHaveBeenCalledWith(3000, undefined);
+      expect(mockPlatformInstance.findProcessesByPort).toHaveBeenCalledWith(3000, 'both');
     });
 
     it('should find processes by port with protocol', async () => {
