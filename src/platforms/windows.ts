@@ -2,10 +2,12 @@ import type { IPlatformImplementation, IProcessInfo } from '../types';
 import { CommandExecutionError, ProcessKillError, PermissionError } from '../errors';
 import { executeCommand } from '../utils/execute-command';
 import { deduplicateProcesses } from '../utils/process-utils';
+import { normalizeProtocol } from '../utils/validators';
 
 export class WindowsPlatform implements IPlatformImplementation {
   async findProcessesByPort(port: number, protocol = 'both'): Promise<IProcessInfo[]> {
     const processes: IProcessInfo[] = [];
+    const normalizedProtocol = normalizeProtocol(protocol);
 
     try {
       const netstatResult = await this.execCmd('netstat', ['-ano']);
@@ -22,8 +24,8 @@ export class WindowsPlatform implements IPlatformImplementation {
 
         const [proto, localAddress, , state, pidStr] = parts;
 
-        if (protocol !== 'both') {
-          const expectedProto = protocol.toUpperCase();
+        if (normalizedProtocol !== 'both') {
+          const expectedProto = normalizedProtocol.toUpperCase();
           if (!proto.startsWith(expectedProto)) {
             continue;
           }
