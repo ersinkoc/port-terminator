@@ -4,7 +4,7 @@ import { WindowsPlatform } from '../platforms/windows';
 import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
-import { validatePID } from '../utils/validators';
+import { validatePID, normalizeProtocol } from '../utils/validators';
 
 export class ProcessKiller {
   private platform: IPlatformImplementation;
@@ -75,7 +75,8 @@ export class ProcessKiller {
     gracefulTimeout = 5000,
     protocol?: string
   ): Promise<IProcessInfo[]> {
-    const processes = await this.platform.findProcessesByPort(port, protocol);
+    const normalizedProtocol = normalizeProtocol(protocol);
+    const processes = await this.platform.findProcessesByPort(port, normalizedProtocol);
 
     if (processes.length === 0) {
       return [];
@@ -103,6 +104,7 @@ export class ProcessKiller {
     gracefulTimeout = 5000,
     protocol?: string
   ): Promise<Map<number, IProcessInfo[]>> {
+    const normalizedProtocol = normalizeProtocol(protocol);
     const results = new Map<number, IProcessInfo[]>();
 
     await Promise.all(
@@ -112,7 +114,7 @@ export class ProcessKiller {
             port,
             force,
             gracefulTimeout,
-            protocol
+            normalizedProtocol
           );
           results.set(port, killedProcesses);
         } catch (error) {
