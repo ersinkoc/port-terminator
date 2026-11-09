@@ -15,15 +15,17 @@ import { CommandExecutionError } from '../errors';
  * @param options - Optional configuration
  * @param options.timeoutMs - Command timeout in milliseconds (default: 30000)
  * @param options.windowsHide - Hide the subprocess window on Windows (default: false)
+ * @param options.maxBuffer - Maximum allowed buffer size in bytes for stdout and stderr (default: 1048576 = 1MB)
  * @returns Promise resolving to command result with stdout, stderr, and exitCode
  * @throws {CommandExecutionError} If the command fails or times out
  */
 export function executeCommand(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; windowsHide?: boolean } = {}
+  options: { timeoutMs?: number; windowsHide?: boolean; maxBuffer?: number } = {}
 ): Promise<ICommandResult> {
-  const { timeoutMs = 30000, windowsHide = false } = options;
+  // Default maxBuffer to 1MB to prevent memory exhaustion (DoS)
+  const { timeoutMs = 30000, windowsHide = false, maxBuffer = 1048576 } = options;
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -33,6 +35,8 @@ export function executeCommand(
 
     let stdout = '';
     let stderr = '';
+    let stdoutLength = 0;
+    let stderrLength = 0;
     let isResolved = false;
     let killTimeout: NodeJS.Timeout | null = null;
 
@@ -53,10 +57,40 @@ export function executeCommand(
     }, timeoutMs);
 
     child.stdout?.on('data', (data: Buffer) => {
+      stdoutLength += data.length;
+      if (stdoutLength > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGKILL');
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `Command exceeded maxBuffer limit of ${maxBuffer} bytes`
+            )
+          );
+        }
+        return;
+      }
       stdout += data.toString();
     });
 
     child.stderr?.on('data', (data: Buffer) => {
+      stderrLength += data.length;
+      if (stderrLength > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          child.kill('SIGKILL');
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `Command exceeded maxBuffer limit of ${maxBuffer} bytes`
+            )
+          );
+        }
+        return;
+      }
       stderr += data.toString();
     });
 

@@ -1,0 +1,4 @@
+## 2025-05-18 - [Unbounded Buffer Accumulation in executeCommand]
+**Vulnerability:** The `executeCommand` utility in `src/utils/execute-command.ts` accumulated `stdout` and `stderr` streams unconditionally without any bounds checking (`stdout += data.toString()`). This introduced an Uncontrolled Resource Consumption (CWE-400) vulnerability, leading to a Denial of Service (DoS) via memory exhaustion if a child process produced excessive output.
+**Learning:** `child_process.spawn` does not inherently limit the size of data accumulated from streams when managed manually.
+**Prevention:** Always enforce a `maxBuffer` limit when accumulating stream data from child processes. Track the length of accumulated data and aggressively terminate the child process (e.g., using `SIGKILL`) while rejecting the promise if the limit is exceeded.
