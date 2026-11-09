@@ -47,7 +47,7 @@ describe('Bug Fixes - Timeout Handling', () => {
       // Should call with 0, not the default 30000
       expect(mockProcessFinderInstance.waitForPortToBeAvailable).toHaveBeenCalledWith(
         3000,
-        0,  // Should be 0, not 30000
+        0, // Should be 0, not 30000
         'both'
       );
     });
@@ -96,7 +96,7 @@ describe('Bug Fixes - Timeout Handling', () => {
       // Should use 0 from constructor, not 30000 fallback
       expect(mockProcessFinderInstance.waitForPortToBeAvailable).toHaveBeenCalledWith(
         3000,
-        0,  // Should be 0 from constructor
+        0, // Should be 0 from constructor
         'both'
       );
     });
@@ -116,8 +116,8 @@ describe('Bug Fixes - Timeout Handling', () => {
       // Should call killProcessesByPort with gracefulTimeout=0
       expect(mockProcessKillerInstance.killProcessesByPort).toHaveBeenCalledWith(
         3000,
-        false,  // force
-        0,      // Should be 0, not 5000
+        false, // force
+        0, // Should be 0, not 5000
         'both'
       );
     });
@@ -151,7 +151,7 @@ describe('Bug Fixes - Timeout Handling', () => {
       expect(mockProcessKillerInstance.killProcessesByPort).toHaveBeenCalledWith(
         3000,
         false,
-        5000,  // Default
+        5000, // Default
         'both'
       );
     });
