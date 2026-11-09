@@ -52,7 +52,7 @@ describe('Bug Fix - Protocol Validation (BUG-2025-003)', () => {
       // Since 0 is a number, not a string, it doesn't pass the typeof check
       // So the protocol remains undefined, which is acceptable
       const options = CommandParser.parseArgs(['3000', '--method', '']);
-      expect(options.method).toBeUndefined();  // Empty value ignored
+      expect(options.method).toBeUndefined(); // Empty value ignored
     });
 
     it('should reject invalid protocol: http', () => {
@@ -115,7 +115,7 @@ describe('Bug Fix - Protocol Validation (BUG-2025-003)', () => {
 
     it('should default to both when not specified (regression test)', () => {
       const options = CommandParser.parseArgs(['3000']);
-      expect(options.method).toBeUndefined();  // CLI doesn't set default, PortTerminator does
+      expect(options.method).toBeUndefined(); // CLI doesn't set default, PortTerminator does
       expect(options.ports).toEqual([3000]);
     });
   });
