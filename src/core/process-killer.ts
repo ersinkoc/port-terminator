@@ -5,11 +5,14 @@ import { MacOSPlatform } from '../platforms/macos';
 import { LinuxPlatform } from '../platforms/linux';
 import { PlatformError } from '../errors';
 import { validatePID } from '../utils/validators';
+import { Logger } from '../utils/logger';
 
 export class ProcessKiller {
   private platform: IPlatformImplementation;
+  private logger: Logger;
 
   constructor() {
+    this.logger = new Logger();
     const platformName = getPlatform();
 
     switch (platformName) {
@@ -40,7 +43,7 @@ export class ProcessKiller {
           return true;
         }
       } catch (error) {
-        // Continue to force kill
+        this.logger.debug(`Graceful kill failed for PID ${pid}, proceeding to force kill:`, error);
       }
     }
 
@@ -60,7 +63,7 @@ export class ProcessKiller {
           const success = await this.killProcess(pid, force, gracefulTimeout);
           results.set(pid, success);
         } catch (error) {
-          // Silently handle errors - continue with other processes
+          this.logger.error(`Failed to kill process ${pid}:`, error);
           results.set(pid, false);
         }
       })
@@ -90,7 +93,7 @@ export class ProcessKiller {
           killedProcesses.push(process);
         }
       } catch (error) {
-        // Silently handle errors - continue with other processes
+        this.logger.error(`Failed to kill process ${process.pid} on port ${port}:`, error);
       }
     }
 
@@ -116,7 +119,7 @@ export class ProcessKiller {
           );
           results.set(port, killedProcesses);
         } catch (error) {
-          // Silently handle errors - continue with other ports
+          this.logger.error(`Failed to kill processes on port ${port}:`, error);
           results.set(port, []);
         }
       })
