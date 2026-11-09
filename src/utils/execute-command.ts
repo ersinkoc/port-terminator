@@ -21,9 +21,9 @@ import { CommandExecutionError } from '../errors';
 export function executeCommand(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; windowsHide?: boolean } = {}
+  options: { timeoutMs?: number; windowsHide?: boolean; maxBuffer?: number } = {}
 ): Promise<ICommandResult> {
-  const { timeoutMs = 30000, windowsHide = false } = options;
+  const { timeoutMs = 30000, windowsHide = false, maxBuffer = 1048576 } = options; // Default maxBuffer 1MB
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -53,11 +53,41 @@ export function executeCommand(
     }, timeoutMs);
 
     child.stdout?.on('data', (data: Buffer) => {
+      if (isResolved) return;
       stdout += data.toString();
+      if (Buffer.byteLength(stdout, 'utf8') > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          child.kill('SIGKILL');
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `stdout maxBuffer exceeded`
+            )
+          );
+        }
+      }
     });
 
     child.stderr?.on('data', (data: Buffer) => {
+      if (isResolved) return;
       stderr += data.toString();
+      if (Buffer.byteLength(stderr, 'utf8') > maxBuffer) {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          child.kill('SIGKILL');
+          reject(
+            new CommandExecutionError(
+              `${command} ${args.join(' ')}`,
+              1,
+              `stderr maxBuffer exceeded`
+            )
+          );
+        }
+      }
     });
 
     child.on('close', (code: number | null) => {
